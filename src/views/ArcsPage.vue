@@ -352,6 +352,7 @@ const normalizeArc = (raw: any) => {
   const id = raw._id ?? raw.id ?? raw.name ?? ''
   const name = raw.name ?? raw.title ?? raw.id ?? raw._id ?? id
   const stat = raw.stat ?? ''
+  console.log('Normalizing arc - raw.stat:', raw.stat, 'final stat:', stat, 'raw object:', raw)
   const streak = Number(raw.streak || 0)
 
   // Normalize members: may be array of strings or user objects or nested objects
