@@ -6,7 +6,7 @@
         <div class="avatar-section">
           <div class="avatar-container">
             <img 
-              :src="currentAvatar?.image || '/default-avatar.png'" 
+              :src="currentAvatar?.image || defaultAvatar" 
               :alt="currentAvatar?.name || 'Default Avatar'"
               class="avatar-image"
             />
@@ -72,7 +72,7 @@
               >
                 <div class="friend-avatar">
                   <img 
-                    :src="friend.avatar || '/default-avatar.png'" 
+                    :src="friend.avatar || defaultAvatar" 
                     :alt="friend.username"
                     class="friend-avatar-img"
                   />
@@ -86,16 +86,21 @@
         </div>
       </div>
     </div>
+    
+  <!-- Friend Stats Modal (same behaviour as Friends page) -->
+  <FriendStatsModal :friend="selectedFriend" @close="closeFriendModal" v-if="selectedFriend" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import StatsCard from '../components/StatsCard.vue'
+import FriendStatsModal from '../components/FriendStatsModal.vue'
 import type { StatData, Arc, Friend, Avatar } from '../types'
+import defaultAvatar from '../assets/default.png'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -133,44 +138,166 @@ const goToFriends = () => {
   router.push('/friends')
 }
 
-const viewFriend = (friend: Friend) => {
-  // TODO: Implement friend view modal
-  console.log('View friend:', friend)
+import { ref as vueRef } from 'vue'
+
+const selectedFriend = vueRef<Friend | null>(null)
+
+// defaultStats removed — friend modal uses its own normalization and current user stats are in totalStats/completedStats
+
+const viewFriend = async (friend: any) => {
+  // Normalize and copy friend
+  selectedFriend.value = { ...(typeof friend === 'string' ? { username: friend } : friend) }
+
+  const userIdString = (typeof friend === 'string')
+    ? friend
+    : (friend.id ?? friend._id ?? friend.username ?? String(friend))
+
+  try {
+    const statsResponse = await apiService.post('/StatTracking/getStats', { user: userIdString })
+    const stats = statsResponse.data?.stats ?? statsResponse.data
+    if (stats && selectedFriend.value) {
+      const { totalStats: t, completedStats: c } = normalizeStatsShape(stats)
+      selectedFriend.value.totalStats = t as any
+      selectedFriend.value.completedStats = c as any
+    }
+
+    if (selectedFriend.value && !selectedFriend.value.username) {
+      try {
+        const userResp = await apiService.post('/Friending/getUserById', { id: userIdString })
+        const u = userResp.data?.user ?? userResp.data
+        if (u && selectedFriend.value) selectedFriend.value.username = u.username || u.name || userIdString
+      } catch (ue) {
+        console.debug('Could not fetch friend details:', ue)
+      }
+    }
+  } catch (error) {
+    console.error('Error loading friend stats:', error)
+  }
+}
+
+const closeFriendModal = () => {
+  selectedFriend.value = null
+}
+
+// Normalize backend stats into frontend-friendly shapes (strip _id/user and compute totals)
+const normalizeStatsShape = (raw: any) => {
+  const keys: Array<[string, string]> = [
+    ['hp', 'HP'],
+    ['stamina', 'Stamina'],
+    ['strength', 'Strength'],
+    ['agility', 'Agility'],
+    ['intelligence', 'Intelligence']
+  ]
+
+  const totalStats: any = {}
+  const completedStats: any = {}
+
+  for (const [low, out] of keys) {
+    const entry = raw[low] ?? raw[out]
+    if (entry && typeof entry === 'object') {
+      const completed = Number(entry.completed || 0)
+      const incompleted = Number(entry.incompleted || 0)
+      totalStats[out] = completed + incompleted
+      completedStats[out] = completed
+    } else if (typeof entry === 'number') {
+      totalStats[out] = entry
+      completedStats[out] = 0
+    } else {
+      totalStats[out] = 0
+      completedStats[out] = 0
+    }
+  }
+
+  return { totalStats, completedStats }
 }
 
 const loadUserData = async () => {
   if (!user.value) return
   
   try {
+    // Backend expects user as a string identifier, extract it
+    const userId = typeof user.value === 'string' 
+      ? user.value 
+      : (user.value as any).username || (user.value as any).id || String(user.value)
+    
     // Load stats
-    const statsResponse = await apiService.post('/api/StatTracking/getStats', {
-      user: user.value
+    const statsResponse = await apiService.post('/StatTracking/getStats', {
+      user: userId
     })
     
     if (statsResponse.data.stats) {
       // Initialize stats if they don't exist
       if (!statsResponse.data.stats.HP) {
-        await apiService.post('/api/StatTracking/initializeStats', {
-          user: user.value
+        await apiService.post('/StatTracking/initializeStats', {
+          user: userId
         })
       }
     }
     
-    // Load arcs
-    const arcsResponse = await apiService.post('/api/ArcTracking/getArcs', {
-      user: user.value
+    // Load arcs - backend returns { arcs: [id1, id2, ...] }, fetch full details
+    const arcsResponse = await apiService.post('/ArcTracking/getArcs', {
+      user: userId
     })
-    userArcs.value = arcsResponse.data || []
+    const arcsData = arcsResponse.data
     
-    // Load friends
-    const friendsResponse = await apiService.post('/api/Friending/listFriends', {
-      user: user.value
-    })
-    friends.value = friendsResponse.data || []
+    if (Array.isArray(arcsData)) {
+      // If it's an array, fetch full details for each arc
+      const fullArcs = await Promise.all(
+        arcsData.map(async (arc: any) => {
+          try {
+            const arcResponse = await apiService.post('/ArcTracking/getArc', { arc: arc.id || arc })
+            return arcResponse.data?.arc || arcResponse.data || arc
+          } catch (error) {
+            console.error('Error fetching arc:', error)
+            return arc
+          }
+        })
+      )
+      userArcs.value = fullArcs.map((arc: any) => ({
+        id: arc._id ?? arc.id ?? '',
+        name: arc.name ?? '',
+        stat: arc.stat ?? '',
+        streak: arc.streak ?? 0,
+        members: Array.isArray(arc.members) ? arc.members : []
+      }))
+    } else if (arcsData && Array.isArray(arcsData.arcs)) {
+      // Backend returns { arcs: [id1, id2, ...] }, fetch full details for each arc ID
+      const fullArcs = await Promise.all(
+        arcsData.arcs.map(async (arcId: string) => {
+          try {
+            const arcResponse = await apiService.post('/ArcTracking/getArc', { arc: arcId })
+            const arcData = arcResponse.data?.arc || arcResponse.data
+            return {
+              id: arcData._id ?? arcData.id ?? arcId,
+              name: arcData.name ?? arcId,
+              stat: arcData.stat ?? '',
+              streak: arcData.streak ?? 0,
+              members: Array.isArray(arcData.members) ? arcData.members : []
+            }
+          } catch (error) {
+            console.error(`Error fetching arc ${arcId}:`, error)
+            // Return a minimal placeholder
+            return {
+              id: arcId,
+              name: arcId,
+              stat: '',
+              streak: 0,
+              members: []
+            }
+          }
+        })
+      )
+      userArcs.value = fullArcs
+    } else {
+      userArcs.value = []
+    }
+    
+    // Load friends (normalize different response shapes)
+    await loadFriendsOnly()
     
     // Load rewards
-    const rewardsResponse = await apiService.post('/api/Rewarding/listAvatars', {
-      user: user.value
+    const rewardsResponse = await apiService.post('/Rewarding/listAvatars', {
+      user: userId
     })
     const avatars = rewardsResponse.data || []
     if (avatars.length > 0) {
@@ -182,8 +309,47 @@ const loadUserData = async () => {
   }
 }
 
+const loadFriendsOnly = async () => {
+  if (!user.value) return
+  try {
+    const friendsResponse = await apiService.post('/Friending/listFriends', {
+      user: user.value
+    })
+    const data = friendsResponse.data
+    if (Array.isArray(data)) {
+      friends.value = data
+    } else if (data && Array.isArray(data.friends)) {
+      friends.value = data.friends
+    } else if (data && Array.isArray(data.users)) {
+      friends.value = data.users
+    } else {
+      friends.value = []
+    }
+    // Normalize simple username strings into objects for consistent rendering
+    friends.value = friends.value.map((f: any) => (typeof f === 'string' ? { username: f, avatar: '' } : f))
+  } catch (err) {
+    console.error('Error loading friends (preview):', err)
+    friends.value = []
+  }
+}
+
 onMounted(() => {
   loadUserData()
+  // Resync when friends change elsewhere in the app
+  const onFriendsUpdated = () => {
+    loadFriendsOnly()
+  }
+  window.addEventListener('friends-updated', onFriendsUpdated)
+
+  // Clean up listener when component unmounts
+  onUnmounted(() => {
+    window.removeEventListener('friends-updated', onFriendsUpdated)
+  })
+})
+
+// If auth store initializes later, reload data
+watch(user, (u) => {
+  if (u) loadUserData()
 })
 </script>
 
@@ -330,6 +496,12 @@ onMounted(() => {
 .arc-preview-card h4, .friend-preview-card h4 {
   margin: 0 0 0.5rem 0;
   color: #333;
+}
+
+.arc-preview-card p {
+  color: #666;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
 }
 
 .arc-stat {

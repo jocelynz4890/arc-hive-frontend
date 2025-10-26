@@ -26,7 +26,7 @@
         <h3>Current Avatar</h3>
         <div class="avatar-display">
           <img 
-            :src="currentAvatar?.image || '/default-avatar.png'" 
+            :src="currentAvatar?.image || defaultAvatar" 
             :alt="currentAvatar?.name || 'Default Avatar'"
             class="current-avatar-img"
           />
@@ -64,7 +64,7 @@
             @click="selectAvatar(avatar)"
           >
             <img 
-              :src="avatar.image || '/default-avatar.png'" 
+              :src="avatar.image || defaultAvatar" 
               :alt="avatar.name"
               class="avatar-img"
             />
@@ -117,7 +117,7 @@
             class="avatar-card available"
           >
             <img 
-              :src="avatar.image || '/default-avatar.png'" 
+              :src="avatar.image || defaultAvatar" 
               :alt="avatar.name"
               class="avatar-img"
             />
@@ -152,7 +152,7 @@
         <div class="modal-body">
           <div class="gacha-result">
             <img 
-              :src="gachaResult?.image || '/default-avatar.png'" 
+              :src="gachaResult?.image || defaultAvatar" 
               :alt="gachaResult?.name || 'New Avatar'"
               class="gacha-avatar-img"
             />
@@ -189,6 +189,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Avatar } from '../types'
+import defaultAvatar from '../assets/default.png'
 
 const authStore = useAuthStore()
 
@@ -210,13 +211,13 @@ const loadRewards = async () => {
   
   try {
     // Load owned avatars
-    const ownedResponse = await apiService.post('/api/Rewarding/listAvatars', {
+    const ownedResponse = await apiService.post('/Rewarding/listAvatars', {
       user: user.value
     })
     ownedAvatars.value = ownedResponse.data || []
     
     if (ownedAvatars.value.length > 0) {
-      currentAvatar.value = ownedAvatars.value[0] // Use first avatar as default
+      currentAvatar.value = ownedAvatars.value[0] ?? null // Use first avatar as default
     }
     
     // Load available avatars (this would need to be implemented in backend)

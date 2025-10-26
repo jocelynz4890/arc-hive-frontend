@@ -30,8 +30,9 @@
         <div class="your-code-section">
           <h3>Your Friend Code</h3>
           <div class="code-display">
-            <span class="code-text">{{ userFriendCode || 'Generating...' }}</span>
-            <button @click="copyCode" class="copy-button">📋</button>
+        <span class="code-text">{{ userFriendCode || 'Generating...' }}</span>
+        <button @click="copyCode" class="copy-button">📋</button>
+        <span class="copy-feedback" v-if="copySuccess" role="status" aria-live="polite">Copied!</span>
           </div>
         </div>
       </div>
@@ -45,20 +46,19 @@
         <div v-else class="friends-grid">
           <div 
             v-for="friend in friends" 
-            :key="friend.username" 
+            :key="friend.id || friend.username" 
             class="friend-card"
             @click="viewFriend(friend)"
           >
             <div class="friend-avatar">
               <img 
-                :src="friend.avatar || '/default-avatar.png'" 
-                :alt="friend.username"
+                :src="friend.avatar || defaultAvatar" 
+                :alt="friend.username || 'friend avatar'"
                 class="friend-avatar-img"
               />
             </div>
             <div class="friend-info">
-              <h4>{{ friend.username }}</h4>
-              <p class="friend-status">Active</p>
+              <h4>{{ friend.username || 'Unknown' }}</h4>
             </div>
             <div class="friend-actions">
               <button @click.stop="removeFriend(friend)" class="remove-button">
@@ -70,37 +70,18 @@
       </div>
     </div>
     
-    <!-- Friend Stats Modal -->
-    <div v-if="selectedFriend" class="modal-overlay" @click="closeFriendModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>{{ selectedFriend.username }}'s Stats</h3>
-          <button @click="closeFriendModal" class="close-button">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="friend-avatar-large">
-            <img 
-              :src="selectedFriend.avatar || '/default-avatar.png'" 
-              :alt="selectedFriend.username"
-              class="friend-avatar-large-img"
-            />
-          </div>
-          <StatsCard 
-            :total-stats="selectedFriend.totalStats || defaultStats" 
-            :completed-stats="selectedFriend.completedStats || defaultStats" 
-          />
-        </div>
-      </div>
-    </div>
+    <!-- Friend Stats Modal (use reusable component) -->
+    <FriendStatsModal :friend="selectedFriend" @close="closeFriendModal" v-if="selectedFriend" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
-import StatsCard from '../components/StatsCard.vue'
-import type { Friend, StatData } from '../types'
+import type { Friend } from '../types'
+import defaultAvatar from '../assets/default.png'
+import FriendStatsModal from '../components/FriendStatsModal.vue'
 
 const authStore = useAuthStore()
 
@@ -110,50 +91,82 @@ const userFriendCode = ref('')
 const friendCodeInput = ref('')
 const loading = ref(false)
 const error = ref('')
+  const copySuccess = ref(false)
 const selectedFriend = ref<Friend | null>(null)
 
-const defaultStats: StatData = {
-  HP: 0,
-  Stamina: 0,
-  Strength: 0,
-  Agility: 0,
-  Intelligence: 0
-}
+
 
 // Computed
 const user = computed(() => authStore.user)
 
 // Methods
+const formatFriendCode = (code: string | undefined | null) => {
+  if (!code) return ''
+  const raw = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '')
+  // If code is 6 chars like ABC123, format as ABC-123 for readability
+  if (raw.length === 6) return `${raw.slice(0,3)}-${raw.slice(3)}`
+  // If code already has groups, just return uppercase original trimmed
+  return String(code).toUpperCase()
+}
+
 const loadFriends = async () => {
   if (!user.value) return
-  
+
   try {
-    const response = await apiService.post('/api/Friending/listFriends', {
+    const response = await apiService.post('/Friending/listFriends', {
       user: user.value
     })
-    friends.value = response.data || []
+    const data = response.data
+    if (Array.isArray(data)) {
+      friends.value = data
+    } else if (data && Array.isArray(data.friends)) {
+      friends.value = data.friends
+    } else if (data && Array.isArray(data.users)) {
+      friends.value = data.users
+    } else {
+      friends.value = []
+    }
+    // Normalize friend entries: backend may return simple username strings.
+    friends.value = friends.value.map((f: any) => {
+      if (typeof f === 'string') return { username: f }
+      return f
+    })
+    // Notify other parts of the app that the friend list changed (so previews can resync)
+    try { window.dispatchEvent(new Event('friends-updated')) } catch (e) { /* ignore */ }
   } catch (error) {
     console.error('Error loading friends:', error)
+    friends.value = []
   }
 }
 
 const loadFriendCode = async () => {
   if (!user.value) return
-  
+  // If the auth store already has a friendCode (generated on register/login), use it first
+  if ((user.value as any).friendCode) {
+    userFriendCode.value = (user.value as any).friendCode
+    return
+  }
   try {
-    const response = await apiService.post('/api/Friending/getFriendCodeByUsername', {
+    const response = await apiService.post('/Friending/getFriendCodeByUsername', {
       username: user.value.username
     })
-    userFriendCode.value = response.data.friendcode
+  // tolerate different response shapes
+  const raw = response.data?.friendcode ?? response.data?.friendCode ?? ''
+  userFriendCode.value = formatFriendCode(raw)
   } catch (error) {
-    // Generate friend code if it doesn't exist
+    // Generate friend code if it doesn't exist on the backend
     try {
-      const generateResponse = await apiService.post('/api/Friending/generateFriendCode', {
+      const generateResponse = await apiService.post('/Friending/generateFriendCode', {
         user: user.value
       })
-      userFriendCode.value = generateResponse.data.friendCode
+  const raw2 = generateResponse.data?.friendCode ?? generateResponse.data?.friendcode ?? ''
+  userFriendCode.value = formatFriendCode(raw2)
     } catch (generateError) {
       console.error('Error generating friend code:', generateError)
+      // As a fallback, use any friendCode on the client-side user object
+      if ((user.value as any).friendCode) {
+        userFriendCode.value = formatFriendCode((user.value as any).friendCode)
+      }
     }
   }
 }
@@ -165,12 +178,33 @@ const addFriend = async () => {
   error.value = ''
   
   try {
-    // Get user by friend code
-    const userResponse = await apiService.post('/api/Friending/getUserByFriendCode', {
-      friendCode: friendCodeInput.value.trim()
-    })
-    
-    const friendUser = userResponse.data.user
+    // Get user by friend code. Try as-entered first, then try a cleaned fallback (no dashes) if not found.
+    let userResponse: any = null
+    const tryCodes = [friendCodeInput.value.trim(), friendCodeInput.value.replace(/[^A-Za-z0-9]/g, '')]
+    let friendUser: any = null
+    let gotUser = false
+    for (const code of tryCodes) {
+      if (!code) continue
+      try {
+        userResponse = await apiService.post('/Friending/getUserByFriendCode', { friendCode: code })
+        friendUser = userResponse.data.user
+        gotUser = true
+        break
+      } catch (e: any) {
+        const serverErr = e.response?.data?.error || e.response?.data
+        if (serverErr && typeof serverErr === 'string' && serverErr.toLowerCase().includes('friend code not found')) {
+          // try next code
+          continue
+        } else {
+          // rethrow other errors
+          throw e
+        }
+      }
+    }
+
+    if (!gotUser) {
+      throw new Error('Friend code not found')
+    }
     
     if (friendUser.username === user.value.username) {
       error.value = "You can't add yourself as a friend!"
@@ -178,7 +212,7 @@ const addFriend = async () => {
     }
     
     // Check if already friends
-    const areFriendsResponse = await apiService.post('/api/Friending/areFriends', {
+    const areFriendsResponse = await apiService.post('/Friending/areFriends', {
       userA: user.value,
       userB: friendUser
     })
@@ -189,7 +223,7 @@ const addFriend = async () => {
     }
     
     // Add friend
-    await apiService.post('/api/Friending/addFriend', {
+    await apiService.post('/Friending/addFriend', {
       from: user.value!,
       to: friendUser
     })
@@ -199,7 +233,15 @@ const addFriend = async () => {
     friendCodeInput.value = ''
     
   } catch (error: any) {
-    error.value = error.response?.data?.error || 'Failed to add friend'
+    // Prefer structured server error, otherwise try to parse common messages
+    const serverErr = error.response?.data?.error || error.response?.data
+    if (serverErr && typeof serverErr === 'string' && serverErr.toLowerCase().includes('friend code not found')) {
+      error.value = 'Friend code not found. Double-check the code and try again.'
+    } else if (serverErr && typeof serverErr === 'object' && serverErr.error) {
+      error.value = String(serverErr.error)
+    } else {
+      error.value = error.message || 'Failed to add friend'
+    }
   } finally {
     loading.value = false
   }
@@ -211,7 +253,7 @@ const removeFriend = async (friend: Friend) => {
   }
   
   try {
-    await apiService.post('/api/Friending/removeFriend', {
+    await apiService.post('/Friending/removeFriend', {
       from: user.value!,
       to: friend
     })
@@ -222,22 +264,75 @@ const removeFriend = async (friend: Friend) => {
   }
 }
 
-const viewFriend = async (friend: Friend) => {
-  selectedFriend.value = friend
-  
-  // Load friend's stats
+const viewFriend = async (friend: any) => {
+  // copy friend object so we can safely mutate
+  selectedFriend.value = { ...(typeof friend === 'string' ? { username: friend } : friend) }
+
+  // Determine the user identifier string to request stats for.
+  // Backend stat APIs expect a string user id (in this app that's typically the username or id string).
+  const userIdString = (typeof friend === 'string')
+    ? friend
+    : (friend.id ?? friend._id ?? friend.username ?? String(friend))
+
   try {
-    const statsResponse = await apiService.post('/api/StatTracking/getStats', {
-      user: friend
-    })
-    
-    if (statsResponse.data.stats) {
-      selectedFriend.value.totalStats = statsResponse.data.stats
-      selectedFriend.value.completedStats = statsResponse.data.stats // Simplified for now
+  const statsResponse = await apiService.post('/StatTracking/getStats', { user: userIdString })
+    const stats = statsResponse.data?.stats ?? statsResponse.data
+    if (stats && selectedFriend.value) {
+      // Normalize backend stats (which may include _id and user) into simple
+      // { hp, stamina, strength, agility, intelligence } shapes for total and completed.
+      const { totalStats: t, completedStats: c } = normalizeStatsShape(stats)
+      const sf = selectedFriend.value
+      // Cast to any to avoid strict type mismatches with StatData shape
+      sf.totalStats = t as any
+      sf.completedStats = c as any
+    }
+
+    // If username is missing on the friend object, try to fetch friend details by id/username
+    if (selectedFriend.value && !selectedFriend.value.username) {
+      try {
+        const userResp = await apiService.post('/Friending/getUserById', { id: userIdString })
+        const u = userResp.data?.user ?? userResp.data
+        if (u && selectedFriend.value) selectedFriend.value.username = u.username || u.name || userIdString
+      } catch (ue) {
+        // ignore: optional enrichment
+        console.debug('Could not fetch friend details:', ue)
+      }
     }
   } catch (error) {
     console.error('Error loading friend stats:', error)
   }
+}
+
+// Convert backend stats shape into frontend-friendly objects and strip metadata.
+const normalizeStatsShape = (raw: any) => {
+  const keys: Array<[string, string]> = [
+    ['hp', 'HP'],
+    ['stamina', 'Stamina'],
+    ['strength', 'Strength'],
+    ['agility', 'Agility'],
+    ['intelligence', 'Intelligence']
+  ]
+
+  const totalStats: any = {}
+  const completedStats: any = {}
+
+  for (const [low, out] of keys) {
+    const entry = raw[low] ?? raw[out]
+    if (entry && typeof entry === 'object') {
+      const completed = Number(entry.completed || 0)
+      const incompleted = Number(entry.incompleted || 0)
+      totalStats[out] = completed + incompleted
+      completedStats[out] = completed
+    } else if (typeof entry === 'number') {
+      totalStats[out] = entry
+      completedStats[out] = 0
+    } else {
+      totalStats[out] = 0
+      completedStats[out] = 0
+    }
+  }
+
+  return { totalStats, completedStats }
 }
 
 const closeFriendModal = () => {
@@ -247,15 +342,27 @@ const closeFriendModal = () => {
 const copyCode = async () => {
   try {
     await navigator.clipboard.writeText(userFriendCode.value)
-    // Could add a toast notification here
+    // show a small transient confirmation
+    copySuccess.value = true
+    setTimeout(() => { copySuccess.value = false }, 2000)
   } catch (error) {
     console.error('Failed to copy code:', error)
   }
 }
 
 onMounted(() => {
-  loadFriends()
-  loadFriendCode()
+  if (user.value) {
+    loadFriends()
+    loadFriendCode()
+  }
+
+  // If the auth store initializes after mount, react to it
+  watch(user, (u) => {
+    if (u) {
+      loadFriends()
+      loadFriendCode()
+    }
+  })
 })
 </script>
 
@@ -366,6 +473,17 @@ onMounted(() => {
   border-radius: 5px;
   cursor: pointer;
   font-size: 1.2rem;
+}
+
+.copy-feedback {
+  margin-left: 0.5rem;
+  color: #2d9a3a;
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: rgba(45, 154, 58, 0.08);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(45,154,58,0.12);
 }
 
 .friends-section {

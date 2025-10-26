@@ -2,8 +2,8 @@
   <div class="stats-card" :class="{ flipped: isFlipped }" @click="flipCard">
     <div class="card-inner">
       <div class="card-front">
-        <h3>Stats Radar</h3>
-        <RadarChart :stats="totalStats" :completed-stats="completedStats" />
+        <h3>{{ username || 'Stats' }}</h3>
+  <RadarChart class="radar-chart" :stats="totalStats" :completed-stats="completedStats" />
         <p class="flip-hint">Click to see progress bars</p>
       </div>
       <div class="card-back">
@@ -29,18 +29,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import RadarChart from './RadarChart.vue'
 import type { StatData } from '../types'
+import { useAuthStore } from '../stores/auth'
 
 interface Props {
   totalStats: StatData
   completedStats: StatData
 }
 
-const props = defineProps<Props>()
+interface ExtendedProps extends Props {
+  username?: string
+}
+
+const props = defineProps<ExtendedProps>()
 
 const isFlipped = ref(false)
+
+const authStore = useAuthStore()
+// Prefer explicit prop username when provided (used to show a friend's name),
+// otherwise fall back to the authenticated user's username.
+const username = computed(() => props.username ?? (authStore.user as any)?.username ?? 'Stats')
 
 const flipCard = () => {
   isFlipped.value = !isFlipped.value
@@ -56,7 +66,7 @@ const getProgressPercentage = (stat: string) => {
 <style scoped>
 .stats-card {
   width: 100%;
-  height: 400px;
+  height: 750px; 
   perspective: 1000px;
   cursor: pointer;
 }
@@ -91,6 +101,9 @@ const getProgressPercentage = (stat: string) => {
 
 .card-back {
   transform: rotateY(180deg);
+  /* Layout the back side starting from the top so progress bars can use full height */
+  justify-content: flex-start;
+  align-items: stretch;
 }
 
 .card-front h3, .card-back h3 {
@@ -103,13 +116,27 @@ const getProgressPercentage = (stat: string) => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem; /* more space between progress bars */
+  /* Allow scrolling if there are many stats; leave space for the header and hints */
+  max-height: calc(100% - 160px);
+  overflow-y: auto;
+  padding-right: 0.5rem;
 }
 
 .progress-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
+}
+
+.radar-chart {
+  width: min(80%, 560px);
+  /* Allow the radar to grow and center vertically within the front face */
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
 }
 
 .stat-label {
@@ -152,5 +179,11 @@ const getProgressPercentage = (stat: string) => {
 
 .stats-card.flipped:hover .card-inner {
   transform: rotateY(180deg) scale(1.02);
+}
+
+@media (max-width: 480px) {
+  .stats-card {
+    height: auto;
+  }
 }
 </style>

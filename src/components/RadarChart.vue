@@ -81,8 +81,15 @@ const createChart = () => {
           beginAtZero: true,
           min: 0,
           max: Math.max(...totalData, 10),
+          // hide numeric tick labels (remove the numbers on the radial axis)
           ticks: {
-            stepSize: 5
+            display: false
+          },
+          // keep the point labels (HP, Stamina, ...) visible and styled if needed
+          pointLabels: {
+            font: {
+              size: 12
+            }
           }
         }
       }
@@ -102,7 +109,10 @@ watch(() => [props.stats, props.completedStats], () => {
 <style scoped>
 .radar-chart-container {
   width: 100%;
-  height: 300px;
+  height: 100%;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

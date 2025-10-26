@@ -87,17 +87,31 @@ const handleSubmit = async () => {
   error.value = ''
   
   try {
+    // Trim inputs to avoid accidental leading/trailing spaces
+    const username = form.username.trim()
+    const password = form.password.trim()
+
+    // If registering, disallow any whitespace inside username or password
+    if (activeTab.value === 'register') {
+      const hasSpace = /\s/.test(username) || /\s/.test(password)
+      if (hasSpace) {
+        error.value = 'Username and password cannot contain spaces.'
+        loading.value = false
+        return
+      }
+    }
+
     let result
     if (activeTab.value === 'login') {
-      result = await authStore.login(form.username, form.password)
+      result = await authStore.login(username, password)
     } else {
-      result = await authStore.register(form.username, form.password)
+      result = await authStore.register(username, password)
     }
     
     if (result.success) {
       router.push('/')
     } else {
-      error.value = result.error
+      error.value = result.error ?? 'An error occurred'
     }
   } catch (err) {
     error.value = 'An unexpected error occurred'
@@ -106,6 +120,15 @@ const handleSubmit = async () => {
   }
 }
 </script>
+
+<style scoped>
+.validation-hint {
+  font-size: 0.9rem;
+  color: #555;
+  margin-top: -0.5rem;
+  margin-bottom: 0.5rem;
+}
+</style>
 
 <style scoped>
 .login-container {

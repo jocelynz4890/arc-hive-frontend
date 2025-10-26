@@ -3,14 +3,25 @@ import { ref, computed } from 'vue'
 import { apiService } from '../services/api'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
+  const user = ref<any>(null)
   const token = ref(localStorage.getItem('token'))
 
   const isAuthenticated = computed(() => !!user.value && !!token.value)
 
+  // Ensure a friend code exists server-side and return it. This calls the backend to create/persist the code.
+  const ensureFriendCodeOnServer = async (u: any) => {
+    try {
+      const resp = await apiService.post('/Friending/generateFriendCode', { user: u })
+      return resp.data?.friendCode ?? resp.data?.friendcode ?? null
+    } catch (e) {
+      console.debug('Could not generate friend code on server:', e)
+      return null
+    }
+  }
+
   const login = async (username: string, password: string) => {
     try {
-      const response = await apiService.post('/api/Authentication/authenticate', {
+      const response = await apiService.post('/Authentication/authenticate', {
         username,
         password
       })
@@ -20,7 +31,20 @@ export const useAuthStore = defineStore('auth', () => {
         // Backend returned an error payload with a 200 status — treat as failure
         return { success: false, error: String((response.data as any).error) }
       }
-      user.value = response.data.user ?? response.data
+      // Normalize user value: backend sometimes returns just an id string
+      const respData = response.data
+      if (respData && typeof (respData as any).user === 'string') {
+        user.value = { id: (respData as any).user, username }
+      } else {
+        user.value = respData.user ?? respData
+      }
+      // Ensure friendCode exists on the server; prefer backend-generated code
+      if (user.value && !(user.value as any).friendCode) {
+        const fc = await ensureFriendCodeOnServer(user.value)
+        if (fc) {
+          ;(user.value as any).friendCode = fc
+        }
+      }
       token.value = 'authenticated' // Simple token for demo
       localStorage.setItem('token', token.value)
       localStorage.setItem('user', JSON.stringify(user.value))
@@ -35,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const register = async (username: string, password: string) => {
     try {
-      const response = await apiService.post('/api/Authentication/register', {
+      const response = await apiService.post('/Authentication/register', {
         username,
         password
       })
@@ -45,7 +69,20 @@ export const useAuthStore = defineStore('auth', () => {
         // Backend returned an error payload (for example: username exists)
         return { success: false, error: String((response.data as any).error) }
       }
-      user.value = response.data.user ?? response.data
+      // Normalize user value: backend sometimes returns just an id string
+      const regData = response.data
+      if (regData && typeof (regData as any).user === 'string') {
+        user.value = { id: (regData as any).user, username }
+      } else {
+        user.value = regData.user ?? regData
+      }
+      // If the backend didn't supply a friendCode, request the server to generate/persist one
+      if (user.value && !(user.value as any).friendCode) {
+        const fc = await ensureFriendCodeOnServer(user.value)
+        if (fc) {
+          ;(user.value as any).friendCode = fc
+        }
+      }
       token.value = 'authenticated'
       localStorage.setItem('token', token.value)
       localStorage.setItem('user', JSON.stringify(user.value))
@@ -71,7 +108,13 @@ export const useAuthStore = defineStore('auth', () => {
     
     if (storedUser && storedToken) {
       try {
-        user.value = JSON.parse(storedUser)
+        const parsed = JSON.parse(storedUser)
+        // If stored user is a plain id string (old behavior), normalize to an object
+        if (typeof parsed === 'string') {
+          user.value = { id: parsed, username: '' }
+        } else {
+          user.value = parsed
+        }
         token.value = storedToken
       } catch (error) {
         console.error('Error parsing stored user:', error)

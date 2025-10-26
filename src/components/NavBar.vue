@@ -128,8 +128,9 @@ const logout = () => {
 }
 
 .nav-button, .nav-icon {
-  background: rgba(102, 126, 234, 0.1);
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  /* Lilac button backgrounds */
+  background: linear-gradient(90deg, #f3e8ff 0%, #e0ccff 50%, #d6b8ff 100%);
+  border: 1px solid rgba(180, 150, 210, 0.4);
   border-radius: 8px;
   padding: 0.5rem 1rem;
   cursor: pointer;
@@ -147,14 +148,14 @@ const logout = () => {
 }
 
 .nav-button:hover, .nav-icon:hover {
-  background: rgba(102, 126, 234, 0.2);
-  border-color: rgba(102, 126, 234, 0.5);
+  background: linear-gradient(90deg, #e9d6ff 0%, #d6b8ff 100%);
+  border-color: rgba(150, 120, 190, 0.75);
   transform: translateY(-1px);
 }
 
 .logout-button:hover {
-  background: rgba(220, 53, 69, 0.2);
-  border-color: rgba(220, 53, 69, 0.5);
+  background: rgba(220, 53, 69, 0.12);
+  border-color: rgba(220, 53, 69, 0.35);
 }
 
 .home-button {

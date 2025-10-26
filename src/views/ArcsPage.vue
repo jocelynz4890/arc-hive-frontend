@@ -41,7 +41,7 @@
                   class="member-item"
                 >
                   <img 
-                    :src="(member as Friend).avatar || '/default-avatar.png'" 
+                    :src="(member as Friend).avatar || defaultAvatar" 
                     :alt="member.username"
                     class="member-avatar"
                   />
@@ -77,10 +77,10 @@
                   <div v-else>
                     <div 
                       v-for="member in getIncompleteMembers(arc)" 
-                      :key="'user' in member ? member.user.username : member.username"
+                      :key="member.username"
                       class="member-progress incomplete"
                     >
-                      {{ 'user' in member ? member.user.username : member.username }}
+                      {{ member.username }}
                     </div>
                   </div>
                 </div>
@@ -167,7 +167,7 @@
                 />
                 <label :for="`member-${friend.username}`" class="member-label">
                   <img 
-                    :src="friend.avatar || '/default-avatar.png'" 
+                    :src="friend.avatar || defaultAvatar" 
                     :alt="friend.username"
                     class="member-avatar-small"
                   />
@@ -214,10 +214,10 @@
                 />
                 <label :for="`edit-member-${friend.username}`" class="member-label">
                   <img 
-                    :src="friend.avatar || '/default-avatar.png'" 
-                    :alt="friend.username"
-                    class="member-avatar-small"
-                  />
+                      :src="friend.avatar || defaultAvatar" 
+                      :alt="friend.username"
+                      class="member-avatar-small"
+                    />
                   {{ friend.username }}
                 </label>
               </div>
@@ -239,10 +239,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Arc, Friend, User } from '../types'
+import defaultAvatar from '../assets/default.png'
 
 const authStore = useAuthStore()
 
@@ -278,26 +279,130 @@ const totalPages = computed(() => {
 
 // Methods
 const loadArcs = async () => {
-  if (!user.value) return
+  if (!user.value) {
+    console.log('No user available, cannot load arcs')
+    return
+  }
   
   try {
-    const response = await apiService.post('/api/ArcTracking/getArcs', {
-      user: user.value
+    console.log('Loading arcs for user:', user.value)
+    // Backend expects user as a string identifier
+    const userId = typeof user.value === 'string' 
+      ? user.value 
+      : (user.value as any)?.username || (user.value as any)?.id || String(user.value)
+    
+    console.log('Sending user ID to backend:', userId)
+    const response = await apiService.post('/ArcTracking/getArcs', {
+      user: userId
     })
-    userArcs.value = response.data || []
+    const arcsData = response.data
+    console.log('Raw arcs data from API:', arcsData)
+    
+    // Normalize returned arcs into a consistent shape so the UI always has
+    // { id, name, stat, members: [{username, avatar}], streak, progress: [{ user: { username }, dailyProgress }] }
+    if (Array.isArray(arcsData)) {
+      console.log('Arcs data is array, fetching full details...')
+      // If it's an array, fetch full details for each arc
+      const fullArcs = await Promise.all(
+        arcsData.map(async (arc: any) => {
+          const arcDetails = await apiService.post('/ArcTracking/getArc', { arc: arc.id || arc })
+          return normalizeArc(arcDetails.data?.arc || arcDetails.data || arc)
+        })
+      )
+      userArcs.value = fullArcs
+    } else if (arcsData && Array.isArray(arcsData.arcs)) {
+      console.log('Arcs data has arcs property, fetching full details...', arcsData.arcs)
+      // Backend returns { arcs: [id1, id2, ...] }, fetch full details for each arc ID
+      const fullArcs = await Promise.all(
+        arcsData.arcs.map(async (arcId: string) => {
+          try {
+            console.log('Fetching details for arc:', arcId)
+            const arcResponse = await apiService.post('/ArcTracking/getArc', { arc: arcId })
+            console.log('Arc response:', arcResponse.data)
+            const arcData = arcResponse.data?.arc || arcResponse.data
+            console.log('Normalizing arc data:', arcData)
+            const normalized = normalizeArc(arcData)
+            console.log('Normalized arc:', normalized)
+            return normalized
+          } catch (error) {
+            console.error(`Error fetching arc ${arcId}:`, error)
+            // Return null so we can filter out failed fetches
+            return null
+          }
+        })
+      )
+      // Filter out any null results from failed fetches
+      userArcs.value = fullArcs.filter((arc: any) => arc !== null)
+      console.log('Final arcs array:', userArcs.value)
+    } else {
+      console.log('No arcs found or unexpected format, arcsData:', arcsData)
+      userArcs.value = []
+    }
+    console.log('Normalized arcs:', userArcs.value)
   } catch (error) {
     console.error('Error loading arcs:', error)
   }
+}
+
+// Normalize an arc object from the server into a predictable shape
+const normalizeArc = (raw: any) => {
+  if (!raw) return { id: '', name: '', stat: '', members: [], streak: 0, progress: [] }
+
+  // Preserve _id from MongoDB since that's what the backend uses for lookups
+  const id = raw._id ?? raw.id ?? raw.name ?? ''
+  const name = raw.name ?? raw.title ?? raw.id ?? raw._id ?? id
+  const stat = raw.stat ?? ''
+  const streak = Number(raw.streak || 0)
+
+  // Normalize members: may be array of strings or user objects or nested objects
+  const membersRaw = Array.isArray(raw.members) ? raw.members : (Array.isArray(raw.Members) ? raw.Members : [])
+  const members = membersRaw.map((m: any) => {
+    if (!m) return { username: '', avatar: '' }
+    if (typeof m === 'string') return { username: m, avatar: '' }
+    // might be { user: { username } } or user-like
+    const username = m.username ?? m.user?.username ?? m.name ?? String(m)
+    const avatar = m.avatar ?? m.user?.avatar ?? ''
+    return { username, avatar }
+  })
+
+  // Normalize progress entries to { user: { username }, dailyProgress }
+  const progressRaw = Array.isArray(raw.progress) ? raw.progress : (Array.isArray(raw.Progress) ? raw.Progress : [])
+  const progress = progressRaw.map((p: any) => {
+    if (!p) return { user: { username: '' }, dailyProgress: false }
+    const userObj = p.user ?? p.member ?? p.userId ?? p
+    let username = ''
+    let avatar = ''
+    if (typeof userObj === 'string') username = userObj
+    else if (userObj) {
+      username = userObj.username ?? userObj.name ?? userObj.user?.username ?? ''
+      avatar = userObj.avatar ?? userObj.user?.avatar ?? ''
+    }
+    const daily = Boolean(p.dailyProgress ?? p.daily ?? p.completed ?? false)
+    return { user: { username, avatar }, dailyProgress: daily }
+  })
+
+  return { id, name, stat, members, streak, progress }
 }
 
 const loadFriends = async () => {
   if (!user.value) return
   
   try {
-    const response = await apiService.post('/api/Friending/listFriends', {
+    const response = await apiService.post('/Friending/listFriends', {
       user: user.value
     })
-    friends.value = response.data || []
+    const data = response.data
+    if (Array.isArray(data)) {
+      friends.value = data
+    } else if (data && Array.isArray(data.friends)) {
+      friends.value = data.friends
+    } else if (data && Array.isArray(data.users)) {
+      friends.value = data.users
+    } else {
+      friends.value = []
+    }
+    // Normalize simple username strings into objects for consistent rendering
+    friends.value = friends.value.map((f: any) => (typeof f === 'string' ? { username: f } : f))
   } catch (error) {
     console.error('Error loading friends:', error)
   }
@@ -305,20 +410,63 @@ const loadFriends = async () => {
 
 const createArc = async () => {
   if (!newArc.value.name || !newArc.value.stat) return
-  
+
   loading.value = true
-  
+
   try {
-    const members = [user.value, ...newArc.value.members]
-    await apiService.post('/api/ArcTracking/createArc', {
+    // Ensure members are normalized user strings (not objects). Backend expects User[] which is string[].
+    const selected = (newArc.value.members || []).map((m: any) => {
+      if (!m) return null
+      // Extract just the username string
+      return typeof m === 'string' ? m : m.username
+    }).filter(Boolean)
+
+    // Include current user as first member (avoid duplicate)
+    const currentUsername = (user.value as any)?.username || String(user.value)
+    const members = [currentUsername, ...selected.filter((m: string) => m !== currentUsername)]
+
+    const resp = await apiService.post('/ArcTracking/createArc', {
       name: newArc.value.name,
       stat: newArc.value.stat,
       members: members
     })
+
+    // If server returned the created arc object, use it to update UI immediately.
+    const created = resp.data?.arc ?? resp.data
+    console.log('Created arc response:', created)
     
-    await loadArcs()
+    if (created) {
+      // If server returned only an id string, synthesize a minimal arc object so the UI shows the name.
+      let arcObj: any
+      if (typeof created === 'string') {
+        arcObj = {
+          id: created,
+          name: newArc.value.name,
+          stat: newArc.value.stat,
+          members: members,
+          streak: 0,
+          progress: []
+        }
+      } else {
+        arcObj = created
+        // Ensure name is present (server might return id-only or partial object)
+        if (!arcObj.name) arcObj.name = newArc.value.name
+        if (!arcObj.members) arcObj.members = members
+      }
+
+      console.log('Normalizing created arc before adding:', arcObj)
+      const normalizedArc = normalizeArc(arcObj)
+      console.log('Normalized arc:', normalizedArc)
+      
+      // Prepend the new arc so it's visible at the top.
+      userArcs.value.unshift(normalizedArc)
+    } else {
+      // Fallback: reload arcs from server
+      await loadArcs()
+    }
+
     closeCreateArcModal()
-    
+
     // Reset form
     newArc.value = {
       name: '',
@@ -347,9 +495,14 @@ const updateArcMembers = async () => {
     // Add new members to the arc
     for (const member of editingArcMembers.value) {
       if (!editingArc.value.members.some((m: User) => m.username === member.username)) {
-        await apiService.post('/api/ArcTracking/addMemberToArc', {
-          user: member,
-          arc: editingArc.value
+        // Backend expects user as a string and arc as a string
+        const memberUsername = typeof member === 'string' 
+          ? member 
+          : (member as any).username || String(member)
+        
+        await apiService.post('/ArcTracking/addMemberToArc', {
+          user: memberUsername,
+          arc: editingArc.value.id
         })
       }
     }
@@ -364,16 +517,28 @@ const updateArcMembers = async () => {
 }
 
 const toggleProgress = async (arc: Arc) => {
+  if (!user.value) return
+  
   try {
+    // Backend expects user as a string identifier, not an object
+    const userId = typeof user.value === 'string' 
+      ? user.value 
+      : (user.value as any).username || (user.value as any).id || String(user.value)
+    
+    console.log('Toggle progress - userId:', userId, 'arc.id:', arc.id)
+    console.log('Current completion status:', isCompletedToday(arc))
+    
     if (isCompletedToday(arc)) {
-      await apiService.post('/api/ArcTracking/markNoProgress', {
-        user: user.value,
-        arc: arc
+      console.log('Marking as NOT completed')
+      await apiService.post('/ArcTracking/markNoProgress', {
+        user: userId,
+        arc: arc.id
       })
     } else {
-      await apiService.post('/api/ArcTracking/markProgress', {
-        user: user.value,
-        arc: arc
+      console.log('Marking as completed')
+      await apiService.post('/ArcTracking/markProgress', {
+        user: userId,
+        arc: arc.id
       })
     }
     
@@ -384,11 +549,24 @@ const toggleProgress = async (arc: Arc) => {
 }
 
 const isCompletedToday = (arc: Arc) => {
-  // This would need to be implemented based on your backend logic
-  // For now, we'll use a simple check
-  return arc.progress && arc.progress.some((p) => 
-    p.user.username === user.value?.username && p.dailyProgress
-  )
+  if (!arc.progress || !user.value) return false
+  
+  // Get the current user's username for comparison
+  const currentUsername = typeof user.value === 'string' 
+    ? user.value 
+    : (user.value as any).username || (user.value as any).id || String(user.value)
+  
+  // Check if current user has completed (p.user might be string or {username} object)
+  const result = arc.progress.some((p) => {
+    const progressUser = typeof p.user === 'string' 
+      ? p.user 
+      : (p.user?.username || p.user?.id || String(p.user))
+    console.log('Comparing progressUser:', progressUser, 'with currentUsername:', currentUsername, 'dailyProgress:', p.dailyProgress)
+    return progressUser === currentUsername && p.dailyProgress
+  })
+  
+  console.log('isCompletedToday result:', result, 'for arc:', arc.name)
+  return result
 }
 
 const getCompletedMembers = (arc: Arc) => {
@@ -397,8 +575,20 @@ const getCompletedMembers = (arc: Arc) => {
 }
 
 const getIncompleteMembers = (arc: Arc) => {
-  if (!arc.progress) return arc.members
-  return arc.progress.filter((p) => !p.dailyProgress)
+  if (!arc.progress || arc.progress.length === 0) {
+    // No progress yet, all members are incomplete
+    return arc.members
+  }
+  
+  // Find which members have completed progress
+  const completedUsernames = new Set(
+    arc.progress
+      .filter((p) => p.dailyProgress)
+      .map((p) => p.user.username)
+  )
+  
+  // Return members who don't have completed progress
+  return arc.members.filter((m) => !completedUsernames.has(m.username))
 }
 
 const closeCreateArcModal = () => {
@@ -417,9 +607,28 @@ const closeEditArcModal = () => {
 }
 
 onMounted(() => {
-  loadArcs()
-  loadFriends()
+  // Ensure auth is initialized before trying to load data
+  authStore.initializeAuth()
+  
+  console.log('ArcsPage mounted, user:', user.value)
+  
+  // Wait a bit for auth to settle
+  setTimeout(() => {
+    if (user.value) {
+      loadArcs()
+      loadFriends()
+    }
+  }, 100)
 })
+
+// If the auth store initializes after mount, reload data when user becomes available
+watch(user, (u) => {
+  console.log('User changed, loading arcs and friends')
+  if (u) {
+    loadFriends()
+    loadArcs()
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -577,6 +786,10 @@ onMounted(() => {
   height: 20px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.member-name {
+  color: #333;
 }
 
 .progress-section {
