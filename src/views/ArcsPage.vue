@@ -239,7 +239,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Arc, Friend, User } from '../types'
@@ -352,7 +352,6 @@ const normalizeArc = (raw: any) => {
   const id = raw._id ?? raw.id ?? raw.name ?? ''
   const name = raw.name ?? raw.title ?? raw.id ?? raw._id ?? id
   const stat = raw.stat ?? ''
-  console.log('Normalizing arc - raw.stat:', raw.stat, 'final stat:', stat, 'raw object:', raw)
   const streak = Number(raw.streak || 0)
 
   // Normalize members: may be array of strings or user objects or nested objects
@@ -550,24 +549,26 @@ const toggleProgress = async (arc: Arc) => {
 }
 
 const isCompletedToday = (arc: Arc) => {
-  if (!arc.progress || !user.value) return false
+  if (!arc.progress || arc.members.length === 0) return false
   
-  // Get the current user's username for comparison
-  const currentUsername = typeof user.value === 'string' 
-    ? user.value 
-    : (user.value as any).username || (user.value as any).id || String(user.value)
+  // Check if ALL members have completed their daily progress
+  const completedUsernames = new Set(
+    arc.progress
+      .filter((p) => p.dailyProgress)
+      .map((p) => {
+        if (typeof p.user === 'string') return p.user
+        return p.user?.username || p.user?.id || String(p.user)
+      })
+  )
   
-  // Check if current user has completed (p.user might be string or {username} object)
-  const result = arc.progress.some((p) => {
-    const progressUser = typeof p.user === 'string' 
-      ? p.user 
-      : (p.user?.username || p.user?.id || String(p.user))
-    console.log('Comparing progressUser:', progressUser, 'with currentUsername:', currentUsername, 'dailyProgress:', p.dailyProgress)
-    return progressUser === currentUsername && p.dailyProgress
-  })
+  // An arc is only completed today if all members completed
+  const allCompleted = arc.members.every((m) => 
+    completedUsernames.has(m.username)
+  )
   
-  console.log('isCompletedToday result:', result, 'for arc:', arc.name)
-  return result
+  console.log('isCompletedToday:', allCompleted, 'for arc:', arc.name, 
+    'completed:', completedUsernames.size, '/', arc.members.length)
+  return allCompleted
 }
 
 const getCompletedMembers = (arc: Arc) => {
@@ -620,6 +621,18 @@ onMounted(() => {
       loadFriends()
     }
   }, 100)
+  
+  // Listen for daily refresh to reload arcs
+  const onDailyRefresh = () => {
+    console.log('Daily refresh completed, reloading arcs...')
+    loadArcs()
+  }
+  window.addEventListener('daily-refresh-completed', onDailyRefresh)
+  
+  // Clean up listener when component unmounts
+  onUnmounted(() => {
+    window.removeEventListener('daily-refresh-completed', onDailyRefresh)
+  })
 })
 
 // If the auth store initializes after mount, reload data when user becomes available

@@ -11,13 +11,19 @@
         <div class="points-display">
           <h3>Your Points</h3>
           <div class="points-value">{{ userPoints }}</div>
-          <button 
-            @click="spendPoints" 
-            :disabled="userPoints < 10 || loading"
-            class="spend-button"
-          >
-            {{ loading ? 'Spending...' : '🎲 Spend 10 Points' }}
-          </button>
+          <div class="spend-button-wrapper">
+            <button 
+              @click="spendPoints" 
+              :disabled="userPoints < 10 || loading"
+              class="spend-button"
+              :title="userPoints < 10 ? `You need ${10 - userPoints} more points to unlock an avatar!` : ''"
+            >
+              {{ loading ? 'Spending...' : '🎲 Spend 10 Points' }}
+            </button>
+            <span v-if="userPoints < 10" class="insufficient-points-tooltip">
+              ℹ️ Need {{ 10 - userPoints }} more points
+            </span>
+          </div>
         </div>
       </div>
       
@@ -185,7 +191,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Avatar } from '../types'
@@ -209,15 +215,28 @@ const user = computed(() => authStore.user)
 const loadRewards = async () => {
   if (!user.value) return
   
+  const userId = typeof user.value === 'string' 
+    ? user.value 
+    : (user.value as any).username || (user.value as any).id || String(user.value)
+  
   try {
-    // Load owned avatars
+    // Load owned avatars and points
     const ownedResponse = await apiService.post('/Rewarding/listAvatars', {
-      user: user.value
+      user: userId
     })
     ownedAvatars.value = ownedResponse.data || []
     
     if (ownedAvatars.value.length > 0) {
       currentAvatar.value = ownedAvatars.value[0] ?? null // Use first avatar as default
+    }
+    
+    // Load user's points
+    try {
+      const pointsResponse = await apiService.post('/Rewarding/getPoints', { user: userId })
+      userPoints.value = pointsResponse.data?.points || pointsResponse.data || 0
+    } catch (error) {
+      console.error('Could not load points:', error)
+      userPoints.value = 0
     }
     
     // Load available avatars (this would need to be implemented in backend)
@@ -232,16 +251,26 @@ const loadRewards = async () => {
 const spendPoints = async () => {
   if (userPoints.value < 10) return
   
+  const userId = typeof user.value === 'string' 
+    ? user.value 
+    : (user.value as any).username || (user.value as any).id || String(user.value)
+  
   loading.value = true
   
   try {
+    // Call backend to spend points
+    await apiService.post('/Rewarding/spendPoints', { 
+      user: userId,
+      points: 10 
+    })
+    
+    // Deduct points
+    userPoints.value -= 10
+    
     const randomAvatar = pickRandomAvatar(availableAvatars.value)
     if (randomAvatar) {
       // Add to owned avatars
       ownedAvatars.value.push(randomAvatar)
-      
-      // Deduct points (this would need backend implementation)
-      userPoints.value -= 10
       
       // Show gacha result
       gachaResult.value = randomAvatar
@@ -313,8 +342,20 @@ const closeGachaModal = () => {
   gachaResult.value = null
 }
 
+const onDailyRefresh = () => {
+  console.log('Daily refresh completed, reloading rewards...')
+  loadRewards()
+}
+
 onMounted(() => {
   loadRewards()
+  
+  // Listen for daily refresh to update points
+  window.addEventListener('daily-refresh-completed', onDailyRefresh)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('daily-refresh-completed', onDailyRefresh)
 })
 </script>
 
@@ -395,6 +436,21 @@ onMounted(() => {
 .spend-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.spend-button-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.insufficient-points-tooltip {
+  font-size: 0.75rem;
+  color: #ff6b6b;
+  font-weight: 600;
+  text-align: center;
 }
 
 .current-avatar-section, .owned-avatars-section, .available-avatars-section {

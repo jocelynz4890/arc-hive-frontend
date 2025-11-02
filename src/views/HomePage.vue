@@ -232,6 +232,11 @@ const loadUserData = async () => {
           user: userId
         })
       }
+      
+      // Update the stats refs with normalized data
+      const normalized = normalizeStatsShape(statsResponse.data.stats)
+      totalStats.value = normalized.totalStats
+      completedStats.value = normalized.completedStats
     }
     
     // Load arcs - backend returns { arcs: [id1, id2, ...] }, fetch full details
@@ -341,9 +346,16 @@ onMounted(() => {
   }
   window.addEventListener('friends-updated', onFriendsUpdated)
 
+  // Listen for daily refresh to reload stats
+  const onDailyRefresh = () => {
+    loadUserData()
+  }
+  window.addEventListener('daily-refresh-completed', onDailyRefresh)
+
   // Clean up listener when component unmounts
   onUnmounted(() => {
     window.removeEventListener('friends-updated', onFriendsUpdated)
+    window.removeEventListener('daily-refresh-completed', onDailyRefresh)
   })
 })
 

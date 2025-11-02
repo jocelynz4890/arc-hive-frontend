@@ -76,13 +76,34 @@ export const useAuthStore = defineStore('auth', () => {
       } else {
         user.value = regData.user ?? regData
       }
-      // If the backend didn't supply a friendCode, request the server to generate/persist one
-      if (user.value && !(user.value as any).friendCode) {
-        const fc = await ensureFriendCodeOnServer(user.value)
+      
+      // Automatically initialize friend code, stats, and rewards for new user
+      const userId = user.value?.id || user.value?.username || String(user.value)
+      
+      // Generate friend code
+      try {
+        const fc = await ensureFriendCodeOnServer(userId)
         if (fc) {
           ;(user.value as any).friendCode = fc
         }
+      } catch (e) {
+        console.error('Could not generate friend code:', e)
       }
+      
+      // Initialize stats
+      try {
+        await apiService.post('/StatTracking/initializeStats', { user: userId })
+      } catch (e) {
+        console.error('Could not initialize stats:', e)
+      }
+      
+      // Initialize rewards
+      try {
+        await apiService.post('/Rewarding/initializeRewards', { user: userId })
+      } catch (e) {
+        console.error('Could not initialize rewards:', e)
+      }
+      
       token.value = 'authenticated'
       localStorage.setItem('token', token.value)
       localStorage.setItem('user', JSON.stringify(user.value))
