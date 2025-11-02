@@ -82,6 +82,7 @@ import { apiService } from '../services/api'
 import type { Friend } from '../types'
 import defaultAvatar from '../assets/default.png'
 import FriendStatsModal from '../components/FriendStatsModal.vue'
+import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
 
@@ -117,15 +118,56 @@ const loadFriends = async () => {
       user: user.value
     })
     const data = response.data
+    let friendList: Friend[] = []
     if (Array.isArray(data)) {
-      friends.value = data
+      friendList = data
     } else if (data && Array.isArray(data.friends)) {
-      friends.value = data.friends
+      friendList = data.friends
     } else if (data && Array.isArray(data.users)) {
-      friends.value = data.users
+      friendList = data.users
     } else {
-      friends.value = []
+      friendList = []
     }
+    
+    // Load each friend's current avatar
+    const friendsWithAvatars = await Promise.all(
+      friendList.map(async (friend: Friend) => {
+        const friendId = typeof friend === 'string' ? friend : (friend as any).username || (friend as any).id || String(friend)
+        
+        try {
+          // Get friend's current avatar
+          const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+            user: friendId
+          })
+          const avatarId = avatarResponse.data?.avatar || ''
+          
+          if (avatarId && avatarId !== '') {
+            // Get avatar definition to get the name
+            const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+              ids: [avatarId]
+            })
+            const avatarDefs = defResponse.data?.avatars || []
+            if (avatarDefs.length > 0 && avatarDefs[0].name) {
+              const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+              return {
+                ...friend,
+                avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
+              }
+            }
+          }
+        } catch (error: any) {
+          console.warn(`Could not load avatar for friend ${friendId}:`, error.message || error)
+        }
+        
+        // Fallback: no avatar or error loading
+        return {
+          ...friend,
+          avatar: defaultAvatar
+        }
+      })
+    )
+    
+    friends.value = friendsWithAvatars
     // Normalize friend entries: backend may return simple username strings.
     friends.value = friends.value.map((f: any) => {
       if (typeof f === 'string') return { username: f }

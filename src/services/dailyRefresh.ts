@@ -44,9 +44,9 @@ export class DailyRefreshService {
     const currentDate = now.toDateString()
     
     // Don't run if we already checked today, DISABLED for testing
-    // if (this.lastCheckDate === currentDate) {
-    //   return
-    // }
+    if (this.lastCheckDate === currentDate) {
+      return
+    }
 
     // Check if it's a new day (not the same as last check date)
     if (this.lastCheckDate && this.lastCheckDate !== currentDate) {

@@ -42,7 +42,7 @@ onUnmounted(() => {
 
 <style>
 #app {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Pixelify Sans', sans-serif;
   margin: 0;
   padding: 0;
   min-height: 100vh;

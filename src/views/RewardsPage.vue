@@ -36,21 +36,10 @@
             :alt="currentAvatar?.name || 'Default Avatar'"
             class="current-avatar-img"
           />
-          <div class="avatar-info">
+            <div class="avatar-info">
             <h4>{{ currentAvatar?.name || 'Default Avatar' }}</h4>
             <p class="rarity">{{ currentAvatar?.rarity || 'common' }}</p>
-            <div v-if="currentAvatar?.statAffinity" class="stat-affinity">
-              <h5>Stat Affinity:</h5>
-              <div class="affinity-list">
-                <div 
-                  v-for="affinity in currentAvatar.statAffinity" 
-                  :key="affinity.stat"
-                  class="affinity-item"
-                >
-                  {{ affinity.stat }}: +{{ affinity.number }}
-                </div>
-              </div>
-            </div>
+            <!-- Stat affinity not displayed for current avatar -->
           </div>
         </div>
       </div>
@@ -77,15 +66,7 @@
             <div class="avatar-details">
               <h4>{{ avatar.name }}</h4>
               <p class="rarity">{{ avatar.rarity }}</p>
-              <div v-if="avatar.statAffinity" class="stat-affinity-small">
-                <div 
-                  v-for="affinity in avatar.statAffinity.slice(0, 2)" 
-                  :key="affinity.stat"
-                  class="affinity-small"
-                >
-                  {{ affinity.stat }}+{{ affinity.number }}
-                </div>
-              </div>
+              <!-- Stat affinity not displayed for owned avatars -->
             </div>
           </div>
         </div>
@@ -94,6 +75,11 @@
       <!-- Available Avatars Section -->
       <div class="available-avatars-section">
         <h3>Available Avatars</h3>
+        <div class="unlock-info">
+          <p class="info-text">
+            💡 As you gain stats by completing arcs, new avatars will unlock and become available to collect through the random draw!
+          </p>
+        </div>
         <div class="rarity-info">
           <div class="rarity-item">
             <span class="rarity-color common">●</span>
@@ -121,6 +107,7 @@
             v-for="avatar in availableAvatars" 
             :key="avatar.name"
             class="avatar-card available"
+            :class="{ 'owned': isAvatarOwned(avatar), 'unlocked': isAvatarUnlocked(avatar) }"
           >
             <img 
               :src="avatar.image || defaultAvatar" 
@@ -130,17 +117,17 @@
             <div class="avatar-details">
               <h4>{{ avatar.name }}</h4>
               <p class="rarity">{{ avatar.rarity }}</p>
-              <div v-if="avatar.statAffinity" class="stat-affinity-small">
-                <div 
-                  v-for="affinity in avatar.statAffinity.slice(0, 2)" 
-                  :key="affinity.stat"
-                  class="affinity-small"
-                >
-                  {{ affinity.stat }}+{{ affinity.number }}
-                </div>
-              </div>
+                  <div v-if="avatar.statAffinity && avatar.statAffinity.length > 0" class="stat-affinity-small">
+                    <div 
+                      v-for="affinity in avatar.statAffinity" 
+                      :key="affinity.stat"
+                      class="affinity-small"
+                    >
+                      {{ affinity.stat }}+{{ affinity.number }}
+                    </div>
+                  </div>
             </div>
-            <div class="locked-overlay">
+            <div v-if="!isAvatarUnlocked(avatar)" class="locked-overlay">
               <span class="locked-text">🔒 Locked</span>
             </div>
           </div>
@@ -194,8 +181,9 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
-import type { Avatar } from '../types'
+import type { Avatar, StatData } from '../types'
 import defaultAvatar from '../assets/default.png'
+import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
 
@@ -207,6 +195,13 @@ const currentAvatar = ref<Avatar | null>(null)
 const showGachaModal = ref(false)
 const gachaResult = ref<Avatar | null>(null)
 const loading = ref(false)
+const completedStats = ref<StatData>({
+  HP: 0,
+  Stamina: 0,
+  Strength: 0,
+  Agility: 0,
+  Intelligence: 0
+})
 
 // Computed
 const user = computed(() => authStore.user)
@@ -224,24 +219,138 @@ const loadRewards = async () => {
     const ownedResponse = await apiService.post('/Rewarding/listAvatars', {
       user: userId
     })
-    ownedAvatars.value = ownedResponse.data || []
+    // Backend returns { avatars: Avatar[] } where Avatar is an ID string
+    const avatarIds = ownedResponse.data?.avatars || ownedResponse.data || []
+    console.log('Loaded avatar IDs from backend:', avatarIds)
     
-    if (ownedAvatars.value.length > 0) {
-      currentAvatar.value = ownedAvatars.value[0] ?? null // Use first avatar as default
+    // Try to get avatar definitions from backend to map IDs to names
+    let avatarDefinitions: any[] = []
+    if (Array.isArray(avatarIds) && avatarIds.length > 0) {
+      try {
+        const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+          ids: avatarIds
+        })
+        avatarDefinitions = defResponse.data?.avatars || []
+        console.log('Got avatar definitions from backend:', avatarDefinitions)
+      } catch (error: any) {
+        console.warn('Could not get avatar definitions by IDs, will try to enhance directly:', error.message || error)
+      }
+    }
+    
+    // Convert avatar IDs to avatar objects with images
+    ownedAvatars.value = Array.isArray(avatarIds)
+      ? avatarIds.map((id: string) => {
+          // First, try to find the avatar definition from backend
+          const def = avatarDefinitions.find((a: any) => a._id === id)
+          if (def) {
+            // Use the name from the definition
+            const enhanced = enhanceAvatarWithImage(def.name)
+            console.log(`Enhanced avatar ID "${id}" using definition "${def.name}" to:`, enhanced)
+            return enhanced
+          } else {
+            // Fallback: try to enhance directly (works if ID is already a name)
+            const enhanced = enhanceAvatarWithImage(id)
+            console.log(`Enhanced avatar ID "${id}" directly to:`, enhanced)
+            return enhanced
+          }
+        })
+      : []
+    
+    // Load current avatar from backend
+    try {
+      const currentResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+        user: userId
+      })
+      const currentAvatarId = currentResponse.data?.avatar || ''
+      
+      if (currentAvatarId && currentAvatarId !== '') {
+        // Get avatar definition to get the name
+        try {
+          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+            ids: [currentAvatarId]
+          })
+          const avatarDefs = defResponse.data?.avatars || []
+          if (avatarDefs.length > 0 && avatarDefs[0].name) {
+            currentAvatar.value = enhanceAvatarWithImage(avatarDefs[0].name)
+            console.log('Loaded current avatar from backend:', currentAvatar.value.name)
+          } else {
+            throw new Error('Avatar definition not found')
+          }
+        } catch (error: any) {
+          console.warn('Could not get current avatar definition, using first owned avatar:', error.message)
+          // Fallback to first owned avatar
+          if (ownedAvatars.value.length > 0) {
+            currentAvatar.value = ownedAvatars.value[0]
+          }
+        }
+      } else {
+        // No current avatar set, use first owned avatar
+        if (ownedAvatars.value.length > 0) {
+          currentAvatar.value = ownedAvatars.value[0]
+        }
+      }
+    } catch (error: any) {
+      console.warn('Could not load current avatar from backend, using first owned avatar:', error.message)
+      // Fallback to first owned avatar
+      if (ownedAvatars.value.length > 0) {
+        currentAvatar.value = ownedAvatars.value[0]
+      }
     }
     
     // Load user's points
     try {
       const pointsResponse = await apiService.post('/Rewarding/getPoints', { user: userId })
-      userPoints.value = pointsResponse.data?.points || pointsResponse.data || 0
-    } catch (error) {
+      // Handle different response structures
+      const pointsValue = pointsResponse.data?.points ?? pointsResponse.data?.Points ?? pointsResponse.data ?? 0
+      userPoints.value = typeof pointsValue === 'number' ? pointsValue : 0
+      console.log('Loaded user points:', userPoints.value)
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        console.warn('getPoints endpoint not found. Please restart your backend server to register the endpoint.')
+      }
       console.error('Could not load points:', error)
       userPoints.value = 0
     }
     
-    // Load available avatars (this would need to be implemented in backend)
-    // For now, we'll create some sample avatars
-    availableAvatars.value = generateSampleAvatars()
+    // Load user's stats to determine which avatars are unlocked
+    try {
+      const statsResponse = await apiService.post('/StatTracking/getStats', {
+        user: userId
+      })
+      const statsData = statsResponse.data?.stats || statsResponse.data
+      if (statsData) {
+        // Normalize stats - handle different backend response formats
+        const keys: Array<[string, keyof StatData]> = [
+          ['hp', 'HP'],
+          ['stamina', 'Stamina'],
+          ['strength', 'Strength'],
+          ['agility', 'Agility'],
+          ['intelligence', 'Intelligence']
+        ]
+        
+        keys.forEach(([low, out]) => {
+          const entry = statsData[low] ?? statsData[out]
+          if (entry && typeof entry === 'object') {
+            completedStats.value[out] = Number(entry.completed || 0)
+          } else if (typeof entry === 'number') {
+            completedStats.value[out] = entry
+          } else {
+            completedStats.value[out] = 0
+          }
+        })
+        console.log('Loaded completed stats for avatar unlocking:', completedStats.value)
+      }
+    } catch (error) {
+      console.error('Could not load stats:', error)
+    }
+    
+    // Generate available avatars from seeded avatar definitions
+    // In the future, this should come from a backend endpoint
+    const availableAvatarNames = [
+      'Voltaris', 'Vulpyx', 'Kael', 'Juniper', 
+      'Thalassa', 'Yuki', 'Apollo', 'Aphrodite', 'Athena'
+    ]
+    availableAvatars.value = availableAvatarNames.map(name => enhanceAvatarWithImage(name))
     
   } catch (error) {
     console.error('Error loading rewards:', error)
@@ -258,7 +367,7 @@ const spendPoints = async () => {
   loading.value = true
   
   try {
-    // Call backend to spend points
+    // First, spend the points
     await apiService.post('/Rewarding/spendPoints', { 
       user: userId,
       points: 10 
@@ -267,25 +376,275 @@ const spendPoints = async () => {
     // Deduct points
     userPoints.value -= 10
     
-    const randomAvatar = pickRandomAvatar(availableAvatars.value)
-    if (randomAvatar) {
-      // Add to owned avatars
-      ownedAvatars.value.push(randomAvatar)
-      
-      // Show gacha result
-      gachaResult.value = randomAvatar
-      showGachaModal.value = true
+    // Get unlocked avatars (based on user stats)
+    const unlockedAvatars = availableAvatars.value.filter(avatar => isAvatarUnlocked(avatar))
+    
+    if (unlockedAvatars.length === 0) {
+      console.error('No unlocked avatars available')
+      alert('No avatars are currently unlocked. Complete more arcs to unlock avatars!')
+      // Refund points
+      userPoints.value += 10
+      await apiService.post('/Rewarding/earnPoints', { user: userId, points: 10 })
+      return
     }
     
-  } catch (error) {
+    // Get avatar IDs from backend
+    // Since the database might have ObjectId-based IDs or name-based IDs, we need to be flexible
+    let avatarIdsToUse: string[] = []
+    
+    // Strategy 1: Try to get all avatar IDs from backend (works with any ID format)
+    try {
+      const availableResponse = await apiService.post('/Rewarding/getAvailableAvatarIds', {
+        user: userId
+      })
+      const allAvatarIds = availableResponse.data?.avatarIds || []
+      
+      if (allAvatarIds.length > 0) {
+        avatarIdsToUse = allAvatarIds
+        console.log('✅ Got all avatar IDs from backend:', avatarIdsToUse.length, 'avatars')
+      } else {
+        throw new Error('No avatar IDs returned from getAvailableAvatarIds')
+      }
+    } catch (error: any) {
+      // Backend endpoint doesn't exist yet or returned error
+      console.warn('Could not get available avatars from backend:', error.message || error)
+      
+      // Strategy 2: Try to map unlocked avatar names to their IDs
+      const unlockedAvatarNames = unlockedAvatars.map(a => a.name)
+      try {
+        const avatarDefResponse = await apiService.post('/Rewarding/getAvatarsByName', {
+          names: unlockedAvatarNames
+        })
+        const avatarDefs = avatarDefResponse.data?.avatars || []
+        
+        if (avatarDefs.length > 0) {
+          avatarIdsToUse = avatarDefs.map((a: any) => a._id)
+          console.log('✅ Mapped avatar names to IDs:', avatarIdsToUse.length, 'avatars')
+        } else {
+          throw new Error('No avatars found by name')
+        }
+      } catch (error2: any) {
+        console.warn('Could not get avatar definitions by name:', error2.message || error2)
+        
+        // Strategy 3: Last resort - use names as IDs (only works if database uses names as IDs)
+        // This will fail if database has ObjectIds, but it's the best we can do without backend support
+        avatarIdsToUse = unlockedAvatarNames
+        console.warn('⚠️ Using avatar names as IDs (last resort). This will only work if database uses names as IDs.')
+        console.warn('   Please restart your backend server and re-seed the database for proper support.')
+      }
+    }
+    
+    if (avatarIdsToUse.length === 0) {
+      console.error('No unlocked avatars available')
+      alert('No avatars are currently unlocked. Complete more arcs to unlock avatars!')
+      // Refund points
+      userPoints.value += 10
+      await apiService.post('/Rewarding/earnPoints', { user: userId, points: 10 })
+      return
+    }
+    
+    // Call backend to pick a random avatar
+    console.log('Calling pickRandomAvatar with IDs:', avatarIdsToUse)
+    const avatarResponse = await apiService.post('/Rewarding/pickRandomAvatar', {
+      availableAvatarIds: avatarIdsToUse
+    })
+    
+    console.log('Avatar response:', avatarResponse.data)
+    
+    if (avatarResponse.data?.error) {
+      console.error('Error from pickRandomAvatar:', avatarResponse.data.error)
+      
+      // Provide helpful error message based on the error
+      if (avatarResponse.data.error.includes('None of the provided avatar IDs are valid')) {
+        alert(
+          '❌ Avatar ID mismatch detected!\n\n' +
+          'The database has different avatar IDs than expected. Please:\n\n' +
+          '1. Re-seed the database:\n' +
+          '   cd arc-hive\n' +
+          '   deno run --allow-read --allow-write --allow-env --allow-net scripts/seedAvatars.ts\n\n' +
+          '2. Restart your backend server to register new endpoints.'
+        )
+      } else {
+        alert(`Error: ${avatarResponse.data.error}`)
+      }
+      
+      // Refund points
+      userPoints.value += 10
+      await apiService.post('/Rewarding/earnPoints', { user: userId, points: 10 })
+      return
+    }
+    
+    const newAvatarId = avatarResponse.data?.avatar
+    console.log('New avatar ID:', newAvatarId)
+    
+    if (!newAvatarId || newAvatarId === '') {
+      console.error('No avatar ID returned from backend')
+      alert('Failed to get an avatar. Please try again.')
+      // Refund points
+      userPoints.value += 10
+      await apiService.post('/Rewarding/earnPoints', { user: userId, points: 10 })
+      return
+    }
+    
+    // Add avatar to backend owned list
+    await apiService.post('/Rewarding/addAvatar', {
+      user: userId,
+      avatar: newAvatarId
+    })
+    
+    // Convert avatar ID to avatar object with image
+    // First try to get the avatar definition from backend to get the name
+    let newAvatar: Avatar
+    try {
+      const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+        ids: [newAvatarId]
+      })
+      const avatarDefs = defResponse.data?.avatars || []
+      if (avatarDefs.length > 0 && avatarDefs[0].name) {
+        // Use the name from the backend definition
+        console.log('Got avatar definition from backend:', avatarDefs[0])
+        newAvatar = enhanceAvatarWithImage(avatarDefs[0].name)
+        console.log('Enhanced avatar using definition name:', newAvatar)
+      } else {
+        throw new Error('No avatar definition found')
+      }
+    } catch (error: any) {
+      console.warn('Could not get avatar definition, enhancing directly with ID:', error.message || error)
+      // Fallback: try to enhance directly (works if ID is already a name)
+      newAvatar = enhanceAvatarWithImage(newAvatarId)
+      console.log('Enhanced avatar directly with ID:', newAvatar)
+    }
+    
+    // Ensure the avatar has the correct name and image
+    if (!newAvatar.name || newAvatar.name === '' || newAvatar.name === newAvatarId) {
+      console.warn('Avatar name is missing or same as ID! ID was:', newAvatarId, 'Name was:', newAvatar.name)
+    }
+    if (!newAvatar.image || newAvatar.image === '') {
+      console.warn('Avatar image is missing! Name was:', newAvatar.name)
+    }
+    
+    // Ensure ownedAvatars is an array before pushing
+    if (!Array.isArray(ownedAvatars.value)) {
+      ownedAvatars.value = []
+    }
+    
+    // Add to owned avatars locally (avoid duplicates)
+    if (!ownedAvatars.value.some(a => a.name === newAvatar.name)) {
+      ownedAvatars.value.push(newAvatar)
+    }
+    
+    // Set as current avatar automatically
+    currentAvatar.value = newAvatar
+    
+    // Show gacha result - ensure it has proper data
+    gachaResult.value = {
+      ...newAvatar,
+      name: newAvatar.name || newAvatarId, // Fallback to ID if name is missing
+      image: newAvatar.image || defaultAvatar // Fallback to default image
+    }
+    showGachaModal.value = true
+    console.log('Gacha modal should show now')
+    
+    // Reload to ensure everything is synced
+    await loadRewards()
+    
+  } catch (error: any) {
     console.error('Error spending points:', error)
+    alert(`Error: ${error.response?.data?.error || error.message || 'Failed to spend points'}`)
+    // Try to refund points on error
+    try {
+      userPoints.value += 10
+      await apiService.post('/Rewarding/earnPoints', { user: userId, points: 10 })
+    } catch (refundError) {
+      console.error('Could not refund points:', refundError)
+    }
   } finally {
     loading.value = false
   }
 }
 
-const selectAvatar = (avatar: Avatar) => {
+const selectAvatar = async (avatar: Avatar) => {
+  if (!user.value) return
+  
+  const userId = typeof user.value === 'string' 
+    ? user.value 
+    : (user.value as any).username || (user.value as any).id || String(user.value)
+  
+  // Get the avatar ID - need to find the ID that corresponds to this avatar name
+  // First, try to find it in ownedAvatars to get the original ID
+  const ownedAvatar = ownedAvatars.value.find(a => a.name === avatar.name)
+  
+  // We need to send the avatar ID (which might be ObjectId or name) to backend
+  // Try to get it from the backend by looking up the avatar definition
+  try {
+    const defResponse = await apiService.post('/Rewarding/getAvatarsByName', {
+      names: [avatar.name]
+    })
+    const avatarDefs = defResponse.data?.avatars || []
+    if (avatarDefs.length > 0) {
+      const avatarId = avatarDefs[0]._id
+      // Save current avatar to backend
+      await apiService.post('/Rewarding/setCurrentAvatar', {
+        user: userId,
+        avatar: avatarId
+      })
+      console.log('Saved current avatar to backend:', avatar.name, 'ID:', avatarId)
+    } else {
+      // Fallback: use name as ID (if database uses names as IDs)
+      await apiService.post('/Rewarding/setCurrentAvatar', {
+        user: userId,
+        avatar: avatar.name as any
+      })
+      console.log('Saved current avatar to backend using name as ID:', avatar.name)
+    }
+  } catch (error: any) {
+    console.error('Could not save current avatar to backend:', error)
+    // Still update locally even if backend save fails
+  }
+  
   currentAvatar.value = avatar
+  console.log('Selected avatar:', avatar.name)
+  
+  // Dispatch event to notify other components
+  window.dispatchEvent(new CustomEvent('avatar-changed', { detail: { avatar } }))
+}
+
+const isAvatarOwned = (avatar: Avatar): boolean => {
+  return ownedAvatars.value.some(owned => owned.name === avatar.name)
+}
+
+const isAvatarUnlocked = (avatar: Avatar): boolean => {
+  if (!avatar.statAffinity || avatar.statAffinity.length === 0) {
+    return true // If no requirements, it's unlocked
+  }
+  
+  // Check if user's completed stats meet all stat affinity requirements
+  for (const affinity of avatar.statAffinity) {
+    // Map stat names from affinity to StatData keys (case-insensitive)
+    const statNameMap: Record<string, keyof StatData> = {
+      'HP': 'HP',
+      'Hp': 'HP',
+      'hp': 'HP',
+      'Stamina': 'Stamina',
+      'stamina': 'Stamina',
+      'Strength': 'Strength',
+      'strength': 'Strength',
+      'Agility': 'Agility',
+      'agility': 'Agility',
+      'Intelligence': 'Intelligence',
+      'intelligence': 'Intelligence'
+    }
+    
+    const statKey = statNameMap[affinity.stat] || affinity.stat as keyof StatData
+    const requiredValue = affinity.number
+    const userValue = completedStats.value[statKey] || 0
+    
+    if (userValue < requiredValue) {
+      return false // User doesn't meet this requirement
+    }
+  }
+  
+  return true // All requirements met
 }
 
 const pickRandomAvatar = (avatars: Avatar[]): Avatar | null => {
@@ -342,9 +701,12 @@ const closeGachaModal = () => {
   gachaResult.value = null
 }
 
-const onDailyRefresh = () => {
+const onDailyRefresh = async () => {
   console.log('Daily refresh completed, reloading rewards...')
-  loadRewards()
+  // Add a small delay to ensure backend operations are fully committed
+  await new Promise(resolve => setTimeout(resolve, 100))
+  await loadRewards()
+  console.log('Rewards reloaded after daily refresh, points:', userPoints.value)
 }
 
 onMounted(() => {
@@ -532,6 +894,9 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .avatar-card:hover {
@@ -548,6 +913,11 @@ onUnmounted(() => {
   opacity: 0.7;
 }
 
+.avatar-card.available.owned,
+.avatar-card.available.unlocked {
+  opacity: 1;
+}
+
 .avatar-img {
   width: 80px;
   height: 80px;
@@ -559,6 +929,10 @@ onUnmounted(() => {
 
 .avatar-details {
   text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .avatar-details h4 {
@@ -574,17 +948,23 @@ onUnmounted(() => {
 
 .stat-affinity-small {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
+  max-height: 60px;
+  overflow-y: auto;
+  margin-top: 0.25rem;
 }
 
 .affinity-small {
   background: rgba(118, 75, 162, 0.2);
   color: #764ba2;
-  padding: 0.125rem 0.25rem;
+  padding: 0.1rem 0.3rem;
   border-radius: 3px;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .locked-overlay {
@@ -604,6 +984,21 @@ onUnmounted(() => {
   color: white;
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+.unlock-info {
+  background: rgba(102, 126, 234, 0.1);
+  border-left: 4px solid #667eea;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.info-text {
+  margin: 0;
+  color: #555;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .rarity-info {

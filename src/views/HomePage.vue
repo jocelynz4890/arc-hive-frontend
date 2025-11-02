@@ -5,11 +5,28 @@
       <div class="stats-section">
         <div class="avatar-section">
           <div class="avatar-container">
-            <img 
-              :src="currentAvatar?.image || defaultAvatar" 
-              :alt="currentAvatar?.name || 'Default Avatar'"
-              class="avatar-image"
-            />
+            <div class="animated-avatar">
+              <img 
+                v-if="currentAvatarFrame1"
+                :src="currentAvatarFrame1" 
+                :alt="currentAvatar?.name || 'Default Avatar'"
+                class="avatar-frame frame1"
+                @load="avatarLoaded = true"
+              />
+              <img 
+                v-if="currentAvatarFrame2"
+                :src="currentAvatarFrame2" 
+                :alt="currentAvatar?.name || 'Default Avatar'"
+                class="avatar-frame frame2"
+                @load="avatarLoaded = true"
+              />
+              <img 
+                v-show="!avatarLoaded"
+                :src="defaultAvatar" 
+                alt="Default Avatar"
+                class="avatar-frame default-avatar"
+              />
+            </div>
             <div class="avatar-info">
               <h3>{{ currentAvatar?.name || 'Default Avatar' }}</h3>
               <p class="rarity">{{ currentAvatar?.rarity || 'common' }}</p>
@@ -101,6 +118,7 @@ import StatsCard from '../components/StatsCard.vue'
 import FriendStatsModal from '../components/FriendStatsModal.vue'
 import type { StatData, Arc, Friend, Avatar } from '../types'
 import defaultAvatar from '../assets/default.png'
+import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -122,9 +140,31 @@ const completedStats = ref<StatData>({
   Intelligence: 0
 })
 
+const currentAvatar = ref<Avatar | null>(null)
+const avatarLoaded = ref(false)
+const currentAvatarFrame1 = computed(() => 
+  currentAvatar.value?.name ? getAvatarImage(currentAvatar.value.name, 1) : null
+)
+const currentAvatarFrame2 = computed(() => 
+  currentAvatar.value?.name ? getAvatarImage(currentAvatar.value.name, 2) : null
+)
+
+// Preload avatar from cache/localStorage if available
+onMounted(() => {
+  const cachedAvatarName = localStorage.getItem('currentAvatarName')
+  if (cachedAvatarName) {
+    try {
+      const cached = enhanceAvatarWithImage(cachedAvatarName)
+      currentAvatar.value = cached
+      avatarLoaded.value = true
+    } catch (e) {
+      console.warn('Could not load cached avatar:', e)
+    }
+  }
+})
+
 const userArcs = ref<Arc[]>([])
 const friends = ref<Friend[]>([])
-const currentAvatar = ref<Avatar | null>(null)
 
 // Computed
 const user = computed(() => authStore.user)
@@ -225,18 +265,31 @@ const loadUserData = async () => {
       user: userId
     })
     
-    if (statsResponse.data.stats) {
+    // Handle different response structures
+    const statsData = statsResponse.data?.stats || statsResponse.data
+    
+    if (statsData) {
       // Initialize stats if they don't exist
-      if (!statsResponse.data.stats.HP) {
+      if (!statsData.HP && !statsData.hp) {
         await apiService.post('/StatTracking/initializeStats', {
           user: userId
         })
+        // Reload stats after initialization
+        const reloadResponse = await apiService.post('/StatTracking/getStats', {
+          user: userId
+        })
+        const reloadData = reloadResponse.data?.stats || reloadResponse.data
+        if (reloadData) {
+          const normalized = normalizeStatsShape(reloadData)
+          totalStats.value = normalized.totalStats
+          completedStats.value = normalized.completedStats
+        }
+      } else {
+        // Update the stats refs with normalized data
+        const normalized = normalizeStatsShape(statsData)
+        totalStats.value = normalized.totalStats
+        completedStats.value = normalized.completedStats
       }
-      
-      // Update the stats refs with normalized data
-      const normalized = normalizeStatsShape(statsResponse.data.stats)
-      totalStats.value = normalized.totalStats
-      completedStats.value = normalized.completedStats
     }
     
     // Load arcs - backend returns { arcs: [id1, id2, ...] }, fetch full details
@@ -300,14 +353,92 @@ const loadUserData = async () => {
     // Load friends (normalize different response shapes)
     await loadFriendsOnly()
     
-    // Load rewards
-    const rewardsResponse = await apiService.post('/Rewarding/listAvatars', {
-      user: userId
-    })
-    const avatars = rewardsResponse.data || []
-    if (avatars.length > 0) {
-      currentAvatar.value = avatars[0] // Use first avatar as default
+    // Load current avatar from backend (not just first avatar)
+    try {
+      const currentResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+        user: userId
+      })
+      const currentAvatarId = currentResponse.data?.avatar || ''
+      
+      if (currentAvatarId && currentAvatarId !== '') {
+        // Get avatar definition to get the name
+        const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+          ids: [currentAvatarId]
+        })
+        const avatarDefs = defResponse.data?.avatars || []
+        if (avatarDefs.length > 0 && avatarDefs[0].name) {
+          const enhanced = enhanceAvatarWithImage(avatarDefs[0].name)
+          console.log('HomePage: Loaded current avatar from backend:', enhanced.name)
+          currentAvatar.value = enhanced
+          // Cache the avatar name for faster loading next time
+          localStorage.setItem('currentAvatarName', avatarDefs[0].name)
+        } else {
+          throw new Error('Avatar definition not found')
+        }
+      } else {
+        // Fallback: use first owned avatar
+        const rewardsResponse = await apiService.post('/Rewarding/listAvatars', {
+          user: userId
+        })
+        const avatarIds = rewardsResponse.data?.avatars || rewardsResponse.data || []
+        if (Array.isArray(avatarIds) && avatarIds.length > 0) {
+          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+            ids: [avatarIds[0]]
+          })
+          const avatarDefs = defResponse.data?.avatars || []
+          if (avatarDefs.length > 0 && avatarDefs[0].name) {
+            currentAvatar.value = enhanceAvatarWithImage(avatarDefs[0].name)
+            localStorage.setItem('currentAvatarName', avatarDefs[0].name)
+          }
+        }
+      }
+    } catch (error: any) {
+      console.warn('HomePage: Could not load current avatar, using first owned:', error.message || error)
+      // Fallback to first owned avatar
+      try {
+        const rewardsResponse = await apiService.post('/Rewarding/listAvatars', {
+          user: userId
+        })
+        const avatarIds = rewardsResponse.data?.avatars || rewardsResponse.data || []
+        if (Array.isArray(avatarIds) && avatarIds.length > 0) {
+          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+            ids: [avatarIds[0]]
+          })
+          const avatarDefs = defResponse.data?.avatars || []
+          if (avatarDefs.length > 0 && avatarDefs[0].name) {
+            currentAvatar.value = enhanceAvatarWithImage(avatarDefs[0].name)
+            localStorage.setItem('currentAvatarName', avatarDefs[0].name)
+          }
+        }
+      } catch (e) {
+        console.error('HomePage: Could not load any avatar:', e)
+        currentAvatar.value = null
+      }
     }
+    
+    // Mark avatar as loaded once we have set it
+    if (currentAvatar.value) {
+      avatarLoaded.value = true
+    }
+    
+    // Listen for avatar changes from other pages
+    const onAvatarChanged = (event: CustomEvent) => {
+      console.log('HomePage: Avatar changed event received:', event.detail)
+      if (event.detail?.avatar) {
+        currentAvatar.value = event.detail.avatar
+        // Cache the new avatar name
+        if (event.detail.avatar.name) {
+          localStorage.setItem('currentAvatarName', event.detail.avatar.name)
+        }
+        avatarLoaded.value = true
+      }
+    }
+    window.addEventListener('avatar-changed', onAvatarChanged as EventListener)
+    
+    // Clean up listener on unmount
+    onUnmounted(() => {
+      window.removeEventListener('avatar-changed', onAvatarChanged as EventListener)
+    })
     
   } catch (error) {
     console.error('Error loading user data:', error)
@@ -321,15 +452,56 @@ const loadFriendsOnly = async () => {
       user: user.value
     })
     const data = friendsResponse.data
+    let friendList: Friend[] = []
     if (Array.isArray(data)) {
-      friends.value = data
+      friendList = data
     } else if (data && Array.isArray(data.friends)) {
-      friends.value = data.friends
+      friendList = data.friends
     } else if (data && Array.isArray(data.users)) {
-      friends.value = data.users
+      friendList = data.users
     } else {
-      friends.value = []
+      friendList = []
     }
+    
+    // Load each friend's current avatar
+    const friendsWithAvatars = await Promise.all(
+      friendList.map(async (friend: Friend) => {
+        const friendId = typeof friend === 'string' ? friend : (friend as any).username || (friend as any).id || String(friend)
+        
+        try {
+          // Get friend's current avatar
+          const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+            user: friendId
+          })
+          const avatarId = avatarResponse.data?.avatar || ''
+          
+          if (avatarId && avatarId !== '') {
+            // Get avatar definition to get the name
+            const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+              ids: [avatarId]
+            })
+            const avatarDefs = defResponse.data?.avatars || []
+            if (avatarDefs.length > 0 && avatarDefs[0].name) {
+              const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+              return {
+                ...friend,
+                avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
+              }
+            }
+          }
+        } catch (error: any) {
+          console.warn(`Could not load avatar for friend ${friendId}:`, error.message || error)
+        }
+        
+        // Fallback: no avatar or error loading
+        return {
+          ...friend,
+          avatar: defaultAvatar
+        }
+      })
+    )
+    
+    friends.value = friendsWithAvatars
     // Normalize simple username strings into objects for consistent rendering
     friends.value = friends.value.map((f: any) => (typeof f === 'string' ? { username: f, avatar: '' } : f))
   } catch (err) {
@@ -347,8 +519,12 @@ onMounted(() => {
   window.addEventListener('friends-updated', onFriendsUpdated)
 
   // Listen for daily refresh to reload stats
-  const onDailyRefresh = () => {
-    loadUserData()
+  const onDailyRefresh = async () => {
+    console.log('Daily refresh completed, reloading user data (stats, arcs, rewards)...')
+    // Add a small delay to ensure backend operations are fully committed
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await loadUserData()
+    console.log('User data reloaded after daily refresh')
   }
   window.addEventListener('daily-refresh-completed', onDailyRefresh)
 
@@ -400,12 +576,49 @@ watch(user, (u) => {
   gap: 1rem;
 }
 
-.avatar-image {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 4px solid rgba(102, 126, 234, 0.3);
+.animated-avatar {
+  position: relative;
+  width: 300px;
+  height: 300px;
+}
+
+.avatar-frame {
+  width: 300px;
+  height: 300px;
+  object-fit: contain;
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: avatarPulse 2s ease-in-out infinite;
+}
+
+.avatar-frame.default-avatar {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.avatar-frame.default-avatar:not([style*="display: none"]) {
+  opacity: 1;
+}
+
+.avatar-frame.frame1 {
+  animation: avatarFrame1 1s steps(2) infinite;
+  opacity: 0;
+}
+
+.avatar-frame.frame2 {
+  animation: avatarFrame2 1s steps(2) infinite;
+  opacity: 1;
+}
+
+@keyframes avatarFrame1 {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes avatarFrame2 {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
 }
 
 .avatar-info h3 {

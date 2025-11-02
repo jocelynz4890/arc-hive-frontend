@@ -244,6 +244,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Arc, Friend, User } from '../types'
 import defaultAvatar from '../assets/default.png'
+import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
 
@@ -309,7 +310,53 @@ const loadArcs = async () => {
           return normalizeArc(arcDetails.data?.arc || arcDetails.data || arc)
         })
       )
-      userArcs.value = fullArcs
+      // Load avatars for all members in all arcs
+      const arcsWithAvatars = await Promise.all(
+        fullArcs.map(async (arc: any) => {
+          const membersWithAvatars = await Promise.all(
+            arc.members.map(async (member: any) => {
+              if (!member.username) return member
+              
+              try {
+                // Get member's current avatar
+                const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+                  user: member.username
+                })
+                const avatarId = avatarResponse.data?.avatar || ''
+                
+                if (avatarId && avatarId !== '') {
+                  // Get avatar definition to get the name
+                  const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+                    ids: [avatarId]
+                  })
+                  const avatarDefs = defResponse.data?.avatars || []
+                  if (avatarDefs.length > 0 && avatarDefs[0].name) {
+                    const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+                    return {
+                      ...member,
+                      avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
+                    }
+                  }
+                }
+              } catch (error: any) {
+                console.warn(`Could not load avatar for member ${member.username}:`, error.message || error)
+              }
+              
+              // Fallback: no avatar or error loading
+              return {
+                ...member,
+                avatar: defaultAvatar
+              }
+            })
+          )
+          return {
+            ...arc,
+            members: membersWithAvatars
+          }
+        })
+      )
+      // Force reactivity by creating a new array reference
+      userArcs.value = [...arcsWithAvatars]
     } else if (arcsData && Array.isArray(arcsData.arcs)) {
       console.log('Arcs data has arcs property, fetching full details...', arcsData.arcs)
       // Backend returns { arcs: [id1, id2, ...] }, fetch full details for each arc ID
@@ -332,8 +379,62 @@ const loadArcs = async () => {
         })
       )
       // Filter out any null results from failed fetches
-      userArcs.value = fullArcs.filter((arc: any) => arc !== null)
+      const validArcs = fullArcs.filter((arc: any) => arc !== null)
+      
+      // Load avatars for all members in all arcs
+      const arcsWithAvatars = await Promise.all(
+        validArcs.map(async (arc: any) => {
+          const membersWithAvatars = await Promise.all(
+            arc.members.map(async (member: any) => {
+              if (!member.username) return member
+              
+              try {
+                // Get member's current avatar
+                const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+                  user: member.username
+                })
+                const avatarId = avatarResponse.data?.avatar || ''
+                
+                if (avatarId && avatarId !== '') {
+                  // Get avatar definition to get the name
+                  const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+                    ids: [avatarId]
+                  })
+                  const avatarDefs = defResponse.data?.avatars || []
+                  if (avatarDefs.length > 0 && avatarDefs[0].name) {
+                    const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+                    return {
+                      ...member,
+                      avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
+                    }
+                  }
+                }
+              } catch (error: any) {
+                console.warn(`Could not load avatar for member ${member.username}:`, error.message || error)
+              }
+              
+              // Fallback: no avatar or error loading
+              return {
+                ...member,
+                avatar: defaultAvatar
+              }
+            })
+          )
+          return {
+            ...arc,
+            members: membersWithAvatars
+          }
+        })
+      )
+      
+      // Force reactivity by creating a new array reference
+      userArcs.value = [...arcsWithAvatars]
       console.log('Final arcs array:', userArcs.value)
+      console.log('Arc progress details:', userArcs.value.map(a => ({
+        name: a.name,
+        streak: a.streak,
+        progress: a.progress
+      })))
     } else {
       console.log('No arcs found or unexpected format, arcsData:', arcsData)
       userArcs.value = []
@@ -364,6 +465,8 @@ const normalizeArc = (raw: any) => {
     const avatar = m.avatar ?? m.user?.avatar ?? ''
     return { username, avatar }
   })
+  
+  // Note: Avatar will be loaded separately for each member after normalization
 
   // Normalize progress entries to { user: { username }, dailyProgress }
   const progressRaw = Array.isArray(raw.progress) ? raw.progress : (Array.isArray(raw.Progress) ? raw.Progress : [])
@@ -392,17 +495,57 @@ const loadFriends = async () => {
       user: user.value
     })
     const data = response.data
+    let friendList: Friend[] = []
     if (Array.isArray(data)) {
-      friends.value = data
+      friendList = data
     } else if (data && Array.isArray(data.friends)) {
-      friends.value = data.friends
+      friendList = data.friends
     } else if (data && Array.isArray(data.users)) {
-      friends.value = data.users
+      friendList = data.users
     } else {
-      friends.value = []
+      friendList = []
     }
+    
+    // Load each friend's current avatar
+    const friendsWithAvatars = await Promise.all(
+      friendList.map(async (friend: Friend) => {
+        const friendId = typeof friend === 'string' ? friend : (friend as any).username || (friend as any).id || String(friend)
+        
+        try {
+          // Get friend's current avatar
+          const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+            user: friendId
+          })
+          const avatarId = avatarResponse.data?.avatar || ''
+          
+          if (avatarId && avatarId !== '') {
+            // Get avatar definition to get the name
+            const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+              ids: [avatarId]
+            })
+            const avatarDefs = defResponse.data?.avatars || []
+            if (avatarDefs.length > 0 && avatarDefs[0].name) {
+              const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+              return {
+                ...friend,
+                avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
+              }
+            }
+          }
+        } catch (error: any) {
+          console.warn(`Could not load avatar for friend ${friendId}:`, error.message || error)
+        }
+        
+        // Fallback: no avatar or error loading
+        return {
+          ...friend,
+          avatar: defaultAvatar
+        }
+      })
+    )
+    
     // Normalize simple username strings into objects for consistent rendering
-    friends.value = friends.value.map((f: any) => (typeof f === 'string' ? { username: f } : f))
+    friends.value = friendsWithAvatars.map((f: any) => (typeof f === 'string' ? { username: f, avatar: defaultAvatar } : f))
   } catch (error) {
     console.error('Error loading friends:', error)
   }
@@ -549,26 +692,23 @@ const toggleProgress = async (arc: Arc) => {
 }
 
 const isCompletedToday = (arc: Arc) => {
-  if (!arc.progress || arc.members.length === 0) return false
+  if (!arc.progress || !user.value) return false
   
-  // Check if ALL members have completed their daily progress
-  const completedUsernames = new Set(
-    arc.progress
-      .filter((p) => p.dailyProgress)
-      .map((p) => {
-        if (typeof p.user === 'string') return p.user
-        return p.user?.username || p.user?.id || String(p.user)
-      })
-  )
+  // Get the current user's username for comparison
+  const currentUsername = typeof user.value === 'string' 
+    ? user.value 
+    : (user.value as any).username || (user.value as any).id || String(user.value)
   
-  // An arc is only completed today if all members completed
-  const allCompleted = arc.members.every((m) => 
-    completedUsernames.has(m.username)
-  )
+  // Check if the current user has completed their daily progress
+  const userCompleted = arc.progress.some((p) => {
+    const progressUser = typeof p.user === 'string' 
+      ? p.user 
+      : (p.user?.username || p.user?.id || String(p.user))
+    return progressUser === currentUsername && p.dailyProgress
+  })
   
-  console.log('isCompletedToday:', allCompleted, 'for arc:', arc.name, 
-    'completed:', completedUsernames.size, '/', arc.members.length)
-  return allCompleted
+  console.log('isCompletedToday (current user):', userCompleted, 'for arc:', arc.name, 'user:', currentUsername)
+  return userCompleted
 }
 
 const getCompletedMembers = (arc: Arc) => {
@@ -623,9 +763,12 @@ onMounted(() => {
   }, 100)
   
   // Listen for daily refresh to reload arcs
-  const onDailyRefresh = () => {
+  const onDailyRefresh = async () => {
     console.log('Daily refresh completed, reloading arcs...')
-    loadArcs()
+    // Add a small delay to ensure backend operations are fully committed
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await loadArcs()
+    console.log('Arcs reloaded after daily refresh')
   }
   window.addEventListener('daily-refresh-completed', onDailyRefresh)
   

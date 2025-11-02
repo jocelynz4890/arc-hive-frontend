@@ -13,3 +13,5 @@ All located at the top level of this repository.
 ## Testing
 
 Force a refresh using `window.dailyRefreshService.forceRefresh()` in the developer console instead of waiting for midnight.
+
+Developer note: when new avatars are added, run `deno run --allow-net --allow-read --allow-env scripts/seedAvatars.ts` in the backend directory to define avatars.

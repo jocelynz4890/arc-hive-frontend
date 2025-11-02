@@ -105,6 +105,7 @@ const logout = () => {
   margin: 0;
   font-size: 1.5rem;
   font-weight: bold;
+  font-family: 'Silkscreen', monospace !important;
   background: linear-gradient(45deg, #667eea, #764ba2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -117,9 +118,11 @@ const logout = () => {
 }
 
 .username {
+  font-family: 'Pixelify Sans', sans-serif;
   font-weight: 600;
   color: #333;
   margin-right: 0.5rem;
+  font-size: 1rem;
 }
 
 .nav-icons {
