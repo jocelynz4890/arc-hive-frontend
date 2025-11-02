@@ -1144,6 +1144,7 @@ watch(user, (u) => {
   border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
   border-radius: 0;
   font-size: 1rem;
+  color: #333;
   background: #ffc8dd;
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }

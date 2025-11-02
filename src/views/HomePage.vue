@@ -149,10 +149,11 @@ const currentAvatarFrame2 = computed(() =>
   currentAvatar.value?.name ? getAvatarImage(currentAvatar.value.name, 2) : null
 )
 
-// Preload avatar from cache/localStorage if available
+// Preload avatar from cache/localStorage if available (user-specific)
 onMounted(() => {
-  const cachedAvatarName = localStorage.getItem('currentAvatarName')
-  if (cachedAvatarName) {
+  const userId = user.value?.id || user.value?.username || String(user.value)
+  const cachedAvatarName = localStorage.getItem(`currentAvatarName_${userId}`)
+  if (cachedAvatarName && userId) {
     try {
       const cached = enhanceAvatarWithImage(cachedAvatarName)
       currentAvatar.value = cached
@@ -370,50 +371,26 @@ const loadUserData = async () => {
           const enhanced = enhanceAvatarWithImage(avatarDefs[0].name)
           console.log('HomePage: Loaded current avatar from backend:', enhanced.name)
           currentAvatar.value = enhanced
-          // Cache the avatar name for faster loading next time
-          localStorage.setItem('currentAvatarName', avatarDefs[0].name)
+          // Cache the avatar name for faster loading next time (user-specific)
+          localStorage.setItem(`currentAvatarName_${userId}`, avatarDefs[0].name)
         } else {
           throw new Error('Avatar definition not found')
         }
       } else {
-        // Fallback: use first owned avatar
-        const rewardsResponse = await apiService.post('/Rewarding/listAvatars', {
-          user: userId
-        })
-        const avatarIds = rewardsResponse.data?.avatars || rewardsResponse.data || []
-        if (Array.isArray(avatarIds) && avatarIds.length > 0) {
-          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-            ids: [avatarIds[0]]
-          })
-          const avatarDefs = defResponse.data?.avatars || []
-          if (avatarDefs.length > 0 && avatarDefs[0].name) {
-            currentAvatar.value = enhanceAvatarWithImage(avatarDefs[0].name)
-            localStorage.setItem('currentAvatarName', avatarDefs[0].name)
-          }
-        }
+        // No current avatar set - show default avatar for new users
+        console.log('HomePage: No current avatar set, showing default avatar')
+        currentAvatar.value = null
+        avatarLoaded.value = false
+        // Clear any cached avatar for this user
+        localStorage.removeItem(`currentAvatarName_${userId}`)
       }
     } catch (error: any) {
-      console.warn('HomePage: Could not load current avatar, using first owned:', error.message || error)
-      // Fallback to first owned avatar
-      try {
-        const rewardsResponse = await apiService.post('/Rewarding/listAvatars', {
-          user: userId
-        })
-        const avatarIds = rewardsResponse.data?.avatars || rewardsResponse.data || []
-        if (Array.isArray(avatarIds) && avatarIds.length > 0) {
-          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-            ids: [avatarIds[0]]
-          })
-          const avatarDefs = defResponse.data?.avatars || []
-          if (avatarDefs.length > 0 && avatarDefs[0].name) {
-            currentAvatar.value = enhanceAvatarWithImage(avatarDefs[0].name)
-            localStorage.setItem('currentAvatarName', avatarDefs[0].name)
-          }
-        }
-      } catch (e) {
-        console.error('HomePage: Could not load any avatar:', e)
-        currentAvatar.value = null
-      }
+      console.warn('HomePage: Could not load current avatar:', error.message || error)
+      // No avatar available - show default
+      currentAvatar.value = null
+      avatarLoaded.value = false
+      // Clear any cached avatar for this user
+      localStorage.removeItem(`currentAvatarName_${userId}`)
     }
     
     // Mark avatar as loaded once we have set it
@@ -425,10 +402,11 @@ const loadUserData = async () => {
     const onAvatarChanged = (event: CustomEvent) => {
       console.log('HomePage: Avatar changed event received:', event.detail)
       if (event.detail?.avatar) {
+        const userId = user.value?.id || user.value?.username || String(user.value)
         currentAvatar.value = event.detail.avatar
-        // Cache the new avatar name
-        if (event.detail.avatar.name) {
-          localStorage.setItem('currentAvatarName', event.detail.avatar.name)
+        // Cache the new avatar name (user-specific)
+        if (event.detail.avatar.name && userId) {
+          localStorage.setItem(`currentAvatarName_${userId}`, event.detail.avatar.name)
         }
         avatarLoaded.value = true
       }
