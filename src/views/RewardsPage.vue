@@ -22,7 +22,8 @@
               {{ loading ? 'Spending...' : 'Spend 10 Points' }}
             </button>
             <span v-if="userPoints < 10" class="insufficient-points-tooltip">
-              ℹ️ Need {{ 10 - userPoints }} more points
+              <img :src="importantIcon" alt="Info" class="tooltip-icon" />
+              Need {{ 10 - userPoints }} more points
             </span>
           </div>
         </div>
@@ -78,7 +79,8 @@
         <h3>Available Avatars</h3>
         <div class="unlock-info">
           <p class="info-text">
-            💡 As you gain stats by completing arcs, new avatars will unlock and become available to collect through the random draw!
+            <img :src="lightbulbIcon" alt="Tip" class="info-icon" />
+            As you gain stats by completing arcs, new avatars will unlock and become available to collect through the random draw!
           </p>
         </div>
         <div class="rarity-info">
@@ -129,7 +131,10 @@
                   </div>
             </div>
             <div v-if="!isAvatarUnlocked(avatar)" class="locked-overlay">
-              <span class="locked-text">🔒 Locked</span>
+              <span class="locked-text">
+                <img :src="lockIcon" alt="Locked" class="lock-icon" />
+                Locked
+              </span>
             </div>
           </div>
         </div>
@@ -185,6 +190,9 @@ import { apiService } from '../services/api'
 import type { Avatar, StatData } from '../types'
 import defaultAvatar from '../assets/default.png'
 import diceIcon from '../assets/dice.png'
+import importantIcon from '../assets/important.png'
+import lightbulbIcon from '../assets/lightbulb.png'
+import lockIcon from '../assets/lock.png'
 import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
@@ -212,9 +220,10 @@ const user = computed(() => authStore.user)
 const loadRewards = async () => {
   if (!user.value) return
   
+  // For Rewarding operations, _id is the username, so prioritize username
   const userId = typeof user.value === 'string' 
     ? user.value 
-    : (user.value as any).username || (user.value as any).id || String(user.value)
+    : (user.value as any)?.username || (user.value as any)?.id || String(user.value)
   
   try {
     // Load owned avatars and points
@@ -304,8 +313,10 @@ const loadRewards = async () => {
       const pointsResponse = await apiService.post('/Rewarding/getPoints', { user: userId })
       // Handle different response structures
       const pointsValue = pointsResponse.data?.points ?? pointsResponse.data?.Points ?? pointsResponse.data ?? 0
-      userPoints.value = typeof pointsValue === 'number' ? pointsValue : 0
-      console.log('Loaded user points:', userPoints.value)
+      const parsedPoints = typeof pointsValue === 'number' ? pointsValue : Number(pointsValue) || 0
+      // Force reactivity by creating a new number reference
+      userPoints.value = parsedPoints
+      console.log('Loaded user points:', userPoints.value, 'from response:', pointsResponse.data)
     } catch (error: any) {
       if (error.response?.status === 404) {
         console.warn('getPoints endpoint not found. Please restart your backend server to register the endpoint.')
@@ -362,9 +373,10 @@ const loadRewards = async () => {
 const spendPoints = async () => {
   if (userPoints.value < 10) return
   
+  // For Rewarding operations, _id is the username, so prioritize username
   const userId = typeof user.value === 'string' 
     ? user.value 
-    : (user.value as any).username || (user.value as any).id || String(user.value)
+    : (user.value as any)?.username || (user.value as any)?.id || String(user.value)
   
   loading.value = true
   
@@ -568,9 +580,10 @@ const spendPoints = async () => {
 const selectAvatar = async (avatar: Avatar) => {
   if (!user.value) return
   
+  // For Rewarding operations, _id is the username, so prioritize username
   const userId = typeof user.value === 'string' 
     ? user.value 
-    : (user.value as any).username || (user.value as any).id || String(user.value)
+    : (user.value as any)?.username || (user.value as any)?.id || String(user.value)
   
   // Get the avatar ID - need to find the ID that corresponds to this avatar name
   // First, try to find it in ownedAvatars to get the original ID
@@ -705,10 +718,43 @@ const closeGachaModal = () => {
 
 const onDailyRefresh = async () => {
   console.log('Daily refresh completed, reloading rewards...')
-  // Add a small delay to ensure backend operations are fully committed
-  await new Promise(resolve => setTimeout(resolve, 100))
-  await loadRewards()
-  console.log('Rewards reloaded after daily refresh, points:', userPoints.value)
+  // Add a delay to ensure backend operations are fully committed
+  await new Promise(resolve => setTimeout(resolve, 500))
+  
+  // Force reload rewards to get updated points
+  const userId = typeof user.value === 'string' 
+    ? user.value 
+    : (user.value as any)?.username || (user.value as any)?.id || String(user.value)
+  
+  try {
+    // Wait a bit more to ensure backend has fully updated
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
+    // Reload points specifically first
+    const pointsResponse = await apiService.post('/Rewarding/getPoints', { user: userId })
+    const pointsValue = pointsResponse.data?.points ?? pointsResponse.data?.Points ?? pointsResponse.data ?? 0
+    const parsedPoints = typeof pointsValue === 'number' ? pointsValue : Number(pointsValue) || 0
+    
+    // Force reactivity by assigning to ensure Vue detects the change
+    userPoints.value = parsedPoints
+    console.log('Points reloaded after daily refresh:', userPoints.value, 'from response:', pointsResponse.data)
+    
+    // Also reload full rewards to ensure everything is synced
+    // Note: loadRewards will also update userPoints, but we just set it above so it should be the same
+    await loadRewards()
+    
+    // Ensure the points value is still correct after loadRewards (in case it didn't update)
+    if (userPoints.value !== parsedPoints) {
+      userPoints.value = parsedPoints
+      console.log('Points corrected after loadRewards:', userPoints.value)
+    }
+  } catch (error: any) {
+    console.error('Error reloading points after daily refresh:', error)
+    // Still try to reload rewards
+    await loadRewards()
+  }
+  
+  console.log('Rewards reloaded after daily refresh, final points:', userPoints.value)
 }
 
 onMounted(() => {
@@ -831,6 +877,19 @@ onUnmounted(() => {
   color: #ff6b6b;
   font-weight: 600;
   text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tooltip-icon {
+  width: auto;
+  height: 14px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .current-avatar-section, .owned-avatars-section, .available-avatars-section {
@@ -919,7 +978,11 @@ onUnmounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
+  min-height: 280px;
+  gap: 0.5rem;
 }
 
 .avatar-card:hover {
@@ -947,16 +1010,17 @@ onUnmounted(() => {
   height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  margin: 0 auto 0.5rem auto;
   display: block;
+  align-self: center;
 }
 
 .avatar-details {
   text-align: center;
-  flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .avatar-details h4 {
@@ -975,8 +1039,6 @@ onUnmounted(() => {
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.2rem;
-  max-height: 60px;
-  overflow-y: auto;
   margin-top: 0.25rem;
 }
 
@@ -1010,6 +1072,19 @@ onUnmounted(() => {
   color: white;
   font-weight: 600;
   font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lock-icon {
+  width: auto;
+  height: 16px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .unlock-info {
@@ -1028,6 +1103,20 @@ onUnmounted(() => {
   color: #555;
   font-size: 0.95rem;
   line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.info-icon {
+  width: auto;
+  height: 24px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  object-fit: contain;
 }
 
 .rarity-info {

@@ -11,7 +11,11 @@ export const useAuthStore = defineStore('auth', () => {
   // Ensure a friend code exists server-side and return it. This calls the backend to create/persist the code.
   const ensureFriendCodeOnServer = async (u: any) => {
     try {
-      const resp = await apiService.post('/Friending/generateFriendCode', { user: u })
+      // Extract username string for backend - Friending expects username string, not object
+      const username = typeof u === 'string' 
+        ? u
+        : (u?.username || u?.id || String(u))
+      const resp = await apiService.post('/Friending/generateFriendCode', { user: username })
       return resp.data?.friendCode ?? resp.data?.friendcode ?? null
     } catch (e) {
       console.debug('Could not generate friend code on server:', e)
@@ -79,10 +83,13 @@ export const useAuthStore = defineStore('auth', () => {
       
       // Automatically initialize friend code, stats, and rewards for new user
       const userId = user.value?.id || user.value?.username || String(user.value)
+      // For Friending and Rewarding, _id must be the username
+      const friendingUserId = user.value?.username || user.value?.id || username || String(user.value)
+      const rewardUserId = user.value?.username || user.value?.id || username || String(user.value)
       
-      // Generate friend code
+      // Generate friend code (using username for Friending)
       try {
-        const fc = await ensureFriendCodeOnServer(userId)
+        const fc = await ensureFriendCodeOnServer(friendingUserId)
         if (fc) {
           ;(user.value as any).friendCode = fc
         }
@@ -97,9 +104,9 @@ export const useAuthStore = defineStore('auth', () => {
         console.error('Could not initialize stats:', e)
       }
       
-      // Initialize rewards
+      // Initialize rewards (using username as _id for Rewarding)
       try {
-        await apiService.post('/Rewarding/initializeRewards', { user: userId })
+        await apiService.post('/Rewarding/initializeRewards', { user: rewardUserId })
       } catch (e) {
         console.error('Could not initialize rewards:', e)
       }

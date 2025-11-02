@@ -88,19 +88,23 @@ const logout = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
   padding: 0 1rem;
 }
 
 .navbar-left {
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .navbar-right {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 1rem;
+  min-width: 0;
 }
 
 .app-title {
@@ -138,6 +142,7 @@ const logout = () => {
 
 .nav-icons {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 

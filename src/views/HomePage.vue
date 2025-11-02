@@ -426,8 +426,13 @@ const loadUserData = async () => {
 const loadFriendsOnly = async () => {
   if (!user.value) return
   try {
+    // Extract username string for backend - Friending expects username string, not object
+    const username = typeof user.value === 'string' 
+      ? user.value
+      : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
+    
     const friendsResponse = await apiService.post('/Friending/listFriends', {
-      user: user.value
+      user: username
     })
     const data = friendsResponse.data
     let friendList: Friend[] = []
@@ -441,10 +446,31 @@ const loadFriendsOnly = async () => {
       friendList = []
     }
     
+    // Deduplicate friends by ID/username before processing
+    const seen = new Set<string>()
+    friendList = friendList.filter((friend: any) => {
+      const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
+      if (seen.has(friendId)) {
+        return false
+      }
+      seen.add(friendId)
+      return true
+    })
+    
     // Load each friend's current avatar
     const friendsWithAvatars = await Promise.all(
-      friendList.map(async (friend: Friend) => {
-        const friendId = typeof friend === 'string' ? friend : (friend as any).username || (friend as any).id || String(friend)
+      friendList.map(async (friend: any) => {
+        // Extract friend ID - backend returns user IDs (which are usernames in this system)
+        const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
+        
+        // Normalize friend object to ensure it has username
+        const normalizedFriend: Friend = typeof friend === 'string' 
+          ? { username: friend, id: friend }
+          : {
+              username: friend.username || friend.id || friend._id || friendId || String(friend),
+              id: friend.id || friend._id || friendId,
+              ...friend
+            }
         
         try {
           // Get friend's current avatar
@@ -462,7 +488,7 @@ const loadFriendsOnly = async () => {
             if (avatarDefs.length > 0 && avatarDefs[0].name) {
               const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
               return {
-                ...friend,
+                ...normalizedFriend,
                 avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
               }
             }
@@ -473,15 +499,22 @@ const loadFriendsOnly = async () => {
         
         // Fallback: no avatar or error loading
         return {
-          ...friend,
+          ...normalizedFriend,
           avatar: defaultAvatar
         }
       })
     )
     
-    friends.value = friendsWithAvatars
-    // Normalize simple username strings into objects for consistent rendering
-    friends.value = friends.value.map((f: any) => (typeof f === 'string' ? { username: f, avatar: '' } : f))
+    // Create a new array reference to ensure Vue reactivity and deduplicate again (in case normalization created duplicates)
+    const uniqueFriends = new Map<string, Friend>()
+    friendsWithAvatars.forEach((friend: Friend) => {
+      const friendId = (friend as any).id || friend.username || (friend as any)._id || String(friend)
+      if (!uniqueFriends.has(friendId)) {
+        uniqueFriends.set(friendId, friend)
+      }
+    })
+    
+    friends.value = [...uniqueFriends.values()]
   } catch (err) {
     console.error('Error loading friends (preview):', err)
     friends.value = []

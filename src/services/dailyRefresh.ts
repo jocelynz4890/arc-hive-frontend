@@ -78,9 +78,10 @@ export class DailyRefreshService {
       return
     }
 
+    // For Rewarding operations, _id is the username, so prioritize username
     const userId = typeof user === 'string' 
       ? user 
-      : (user as any).username || (user as any).id || String(user)
+      : (user as any)?.username || (user as any)?.id || String(user)
 
     try {
       console.log('Starting daily refresh for user:', userId)

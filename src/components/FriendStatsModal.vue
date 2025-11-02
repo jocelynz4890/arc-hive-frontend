@@ -68,8 +68,24 @@ const normalizeStatsShape = (raw: any) => {
   return { totalStats, completedStats }
 }
 
+// The friend object should already have totalStats and completedStats set from viewFriend
+// If not, try to normalize from the raw stats
 const normalized = computed(() => {
-  const raw = props.friend?.totalStats ?? props.friend
+  const friend = props.friend
+  if (!friend) {
+    return { totalStats: {}, completedStats: {} }
+  }
+  
+  // If stats are already normalized (from viewFriend), use them directly
+  if (friend.totalStats && friend.completedStats) {
+    return {
+      totalStats: friend.totalStats,
+      completedStats: friend.completedStats
+    }
+  }
+  
+  // Otherwise, normalize from raw stats (backward compatibility)
+  const raw = friend.totalStats ?? friend
   return normalizeStatsShape(raw)
 })
 

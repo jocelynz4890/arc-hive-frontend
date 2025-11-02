@@ -140,7 +140,7 @@ const handleSubmit = async () => {
 }
 
 .login-card {
-  background: #ffffff;
+  background: #ffc8dd;
   border: 4px solid;
   border-color: #e0e0e0 #a0a0a0 #a0a0a0 #e0e0e0;
   border-radius: 0;
@@ -158,8 +158,8 @@ const handleSubmit = async () => {
   font-size: 2.5rem;
   font-weight: bold;
   font-family: 'Silkscreen', monospace !important;
-  color: #333;
-  text-shadow: 2px 2px 0 #ffc8dd;
+  color: #bde0fe;
+  text-shadow: 2px 2px 0 #a2d2ff;
   margin: 0 0 0.5rem 0;
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
@@ -167,6 +167,11 @@ const handleSubmit = async () => {
   letter-spacing: 0.05em;
   transform: scale(0.98);
   transform-origin: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.25rem 0.5rem;
+  border: 2px solid #ffffff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+  display: inline-block;
 }
 
 .subtitle {
@@ -206,10 +211,10 @@ const handleSubmit = async () => {
 }
 
 .tab-button.active {
-  background: #ffc8dd;
+  background: #bde0fe;
   color: #333;
   border: 2px solid;
-  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
   box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
 }
 
@@ -261,10 +266,10 @@ const handleSubmit = async () => {
 }
 
 .submit-button {
-  background: #ffc8dd;
+  background: #bde0fe;
   color: #333;
   border: 3px solid;
-  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
   border-radius: 0;
   padding: 0.75rem;
   font-size: 1rem;
@@ -276,8 +281,8 @@ const handleSubmit = async () => {
 }
 
 .submit-button:hover:not(:disabled) {
-  background: #ffafcc;
-  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  background: #a2d2ff;
+  border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
   transform: translate(2px, 2px);
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }

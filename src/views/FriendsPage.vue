@@ -31,7 +31,9 @@
           <h3>Your Friend Code</h3>
           <div class="code-display">
         <span class="code-text">{{ userFriendCode || 'Generating...' }}</span>
-        <button @click="copyCode" class="copy-button">📋</button>
+        <button @click="copyCode" class="copy-button">
+          <img :src="clipboardIcon" alt="Copy" class="icon-img" />
+        </button>
         <span class="copy-feedback" v-if="copySuccess" role="status" aria-live="polite">Copied!</span>
           </div>
         </div>
@@ -62,7 +64,7 @@
             </div>
             <div class="friend-actions">
               <button @click.stop="removeFriend(friend)" class="remove-button">
-                🗑️
+                <img :src="trashbinIcon" alt="Remove" class="icon-img" />
               </button>
             </div>
           </div>
@@ -81,6 +83,8 @@ import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Friend } from '../types'
 import defaultAvatar from '../assets/default.png'
+import trashbinIcon from '../assets/trashbin.png'
+import clipboardIcon from '../assets/clipboard.png'
 import FriendStatsModal from '../components/FriendStatsModal.vue'
 import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
@@ -114,8 +118,13 @@ const loadFriends = async () => {
   if (!user.value) return
 
   try {
+    // Extract username string for backend - Friending expects username string, not object
+    const username = typeof user.value === 'string' 
+      ? user.value
+      : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
+    
     const response = await apiService.post('/Friending/listFriends', {
-      user: user.value
+      user: username
     })
     const data = response.data
     let friendList: Friend[] = []
@@ -129,10 +138,36 @@ const loadFriends = async () => {
       friendList = []
     }
     
-    // Load each friend's current avatar
+    // Deduplicate friends by ID/username before processing
+    const seen = new Set<string>()
+    friendList = friendList.filter((friend: any) => {
+      const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
+      if (seen.has(friendId)) {
+        return false
+      }
+      seen.add(friendId)
+      return true
+    })
+    
+    // Load each friend's current avatar and ensure username is set
     const friendsWithAvatars = await Promise.all(
-      friendList.map(async (friend: Friend) => {
-        const friendId = typeof friend === 'string' ? friend : (friend as any).username || (friend as any).id || String(friend)
+      friendList.map(async (friend: any) => {
+        // Extract friend ID - backend returns user IDs (which are usernames in this system)
+        const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
+        
+        // Normalize friend object to ensure it has username
+        // Backend returns usernames as strings or objects with username/id
+        // For Friending, the user ID IS the username, so if only an id is present, use it as username
+        const normalizedFriend: Friend = typeof friend === 'string' 
+          ? { username: friend, id: friend }
+          : {
+              // Spread friend first to get all properties
+              ...friend,
+              // Then ensure username is set: prioritize explicit username, then use id/_id/friendId (which is the username in Friending)
+              username: friend.username || friendId || friend.id || friend._id || String(friend),
+              // Set id to the same value for consistency
+              id: friend.id || friend._id || friendId || friend.username || String(friend)
+            }
         
         try {
           // Get friend's current avatar
@@ -150,7 +185,7 @@ const loadFriends = async () => {
             if (avatarDefs.length > 0 && avatarDefs[0].name) {
               const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
               return {
-                ...friend,
+                ...normalizedFriend,
                 avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
               }
             }
@@ -161,18 +196,22 @@ const loadFriends = async () => {
         
         // Fallback: no avatar or error loading
         return {
-          ...friend,
+          ...normalizedFriend,
           avatar: defaultAvatar
         }
       })
     )
     
-    friends.value = friendsWithAvatars
-    // Normalize friend entries: backend may return simple username strings.
-    friends.value = friends.value.map((f: any) => {
-      if (typeof f === 'string') return { username: f }
-      return f
+    // Create a new array reference to ensure Vue reactivity and deduplicate again (in case normalization created duplicates)
+    const uniqueFriends = new Map<string, Friend>()
+    friendsWithAvatars.forEach((friend: Friend) => {
+      const friendId = (friend as any).id || friend.username || (friend as any)._id || String(friend)
+      if (!uniqueFriends.has(friendId)) {
+        uniqueFriends.set(friendId, friend)
+      }
     })
+    
+    friends.value = [...uniqueFriends.values()]
     // Notify other parts of the app that the friend list changed (so previews can resync)
     try { window.dispatchEvent(new Event('friends-updated')) } catch (e) { /* ignore */ }
   } catch (error) {
@@ -198,8 +237,12 @@ const loadFriendCode = async () => {
   } catch (error) {
     // Generate friend code if it doesn't exist on the backend
     try {
+      // Extract username string for backend - Friending expects username string, not object
+      const username = typeof user.value === 'string' 
+        ? user.value
+        : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
       const generateResponse = await apiService.post('/Friending/generateFriendCode', {
-        user: user.value
+        user: username
       })
   const raw2 = generateResponse.data?.friendCode ?? generateResponse.data?.friendcode ?? ''
   userFriendCode.value = formatFriendCode(raw2)
@@ -220,6 +263,16 @@ const addFriend = async () => {
   error.value = ''
   
   try {
+    // Check if user is trying to add their own friend code (before making API call)
+    const cleanedInput = friendCodeInput.value.trim().replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+    const userCode = (userFriendCode.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+    
+    if (cleanedInput && userCode && cleanedInput === userCode) {
+      error.value = 'You cannot add your own friend code!'
+      loading.value = false
+      return
+    }
+    
     // Get user by friend code. Try as-entered first, then try a cleaned fallback (no dashes) if not found.
     let userResponse: any = null
     const tryCodes = [friendCodeInput.value.trim(), friendCodeInput.value.replace(/[^A-Za-z0-9]/g, '')]
@@ -248,15 +301,24 @@ const addFriend = async () => {
       throw new Error('Friend code not found')
     }
     
-    if (friendUser.username === user.value.username) {
+    // Extract username strings for backend - Friending expects username strings, not objects
+    const username = typeof user.value === 'string' 
+      ? user.value
+      : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
+    // getUserByFriendCode returns a username string
+    const friendUsername = typeof friendUser === 'string'
+      ? friendUser
+      : (friendUser?.username || friendUser?.id || String(friendUser))
+    
+    if (username === friendUsername) {
       error.value = "You can't add yourself as a friend!"
       return
     }
     
-    // Check if already friends
+    // Check if already friends (using username strings)
     const areFriendsResponse = await apiService.post('/Friending/areFriends', {
-      userA: user.value,
-      userB: friendUser
+      userA: username,
+      userB: friendUsername
     })
     
     if (areFriendsResponse.data.areFriends) {
@@ -264,10 +326,10 @@ const addFriend = async () => {
       return
     }
     
-    // Add friend
+    // Add friend (using username strings)
     await apiService.post('/Friending/addFriend', {
-      from: user.value!,
-      to: friendUser
+      from: username,
+      to: friendUsername
     })
     
     // Reload friends list
@@ -290,19 +352,39 @@ const addFriend = async () => {
 }
 
 const removeFriend = async (friend: Friend) => {
-  if (!confirm(`Are you sure you want to remove ${friend.username} from your friends?`)) {
+  if (!confirm(`Are you sure you want to remove ${friend.username || 'this friend'} from your friends?`)) {
     return
   }
   
   try {
+    // Extract username strings for backend - Friending expects username strings, not objects
+    const username = typeof user.value === 'string' 
+      ? user.value
+      : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
+    const friendUsername = friend.username || (friend as any).id || String(friend)
+    
     await apiService.post('/Friending/removeFriend', {
-      from: user.value!,
-      to: friend
+      from: username,
+      to: friendUsername
     })
     
+    // Update filter to use username for comparison
+    const friendId = friendUsername
+    
+    // Immediately remove from local array for instant feedback
+    friends.value = friends.value.filter((f: Friend) => {
+      const fId = (f as any).id || f.username || (f as any)._id || String(f)
+      return fId !== friendId
+    })
+    
+    // Then reload from backend to ensure consistency
     await loadFriends()
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error removing friend:', error)
+    const errorMsg = error.response?.data?.error || error.message || 'Failed to remove friend'
+    alert(`Failed to remove friend: ${errorMsg}. Please try again.`)
+    // Reload to ensure UI is in sync with backend
+    await loadFriends()
   }
 }
 
@@ -535,6 +617,18 @@ onMounted(() => {
   font-size: 1.2rem;
   box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
   transition: all 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-img {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
 }
 
 .copy-button:hover {
@@ -644,6 +738,9 @@ onMounted(() => {
   font-size: 1rem;
   box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
   transition: all 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .remove-button:hover {

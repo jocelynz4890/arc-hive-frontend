@@ -27,7 +27,7 @@
               <h3>{{ arc.name }}</h3>
               <div class="arc-streak">
                 {{ arc.streak }} days
-                <span v-if="wasCompletedYesterday(arc)" class="fire-emoji">🔥</span>
+                <img v-if="wasCompletedYesterday(arc)" :src="fireIcon" alt="Fire" class="fire-icon" />
               </div>
             </div>
             
@@ -255,6 +255,7 @@ import defaultAvatar from '../assets/default.png'
 import pencilIcon from '../assets/pencil.png'
 import completedIcon from '../assets/completed.png'
 import incompletedIcon from '../assets/incompleted.png'
+import fireIcon from '../assets/fire.png'
 import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
@@ -502,8 +503,13 @@ const loadFriends = async () => {
   if (!user.value) return
   
   try {
+    // Extract username string for backend - Friending expects username string, not object
+    const username = typeof user.value === 'string' 
+      ? user.value
+      : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
+    
     const response = await apiService.post('/Friending/listFriends', {
-      user: user.value
+      user: username
     })
     const data = response.data
     let friendList: Friend[] = []
@@ -517,10 +523,31 @@ const loadFriends = async () => {
       friendList = []
     }
     
+    // Deduplicate friends by ID/username before processing
+    const seen = new Set<string>()
+    friendList = friendList.filter((friend: any) => {
+      const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
+      if (seen.has(friendId)) {
+        return false
+      }
+      seen.add(friendId)
+      return true
+    })
+    
     // Load each friend's current avatar
     const friendsWithAvatars = await Promise.all(
-      friendList.map(async (friend: Friend) => {
-        const friendId = typeof friend === 'string' ? friend : (friend as any).username || (friend as any).id || String(friend)
+      friendList.map(async (friend: any) => {
+        // Extract friend ID - backend returns user IDs (which are usernames in this system)
+        const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
+        
+        // Normalize friend object to ensure it has username
+        const normalizedFriend: Friend = typeof friend === 'string' 
+          ? { username: friend, id: friend }
+          : {
+              username: friend.username || friend.id || friend._id || friendId || String(friend),
+              id: friend.id || friend._id || friendId,
+              ...friend
+            }
         
         try {
           // Get friend's current avatar
@@ -538,7 +565,7 @@ const loadFriends = async () => {
             if (avatarDefs.length > 0 && avatarDefs[0].name) {
               const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
               return {
-                ...friend,
+                ...normalizedFriend,
                 avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
               }
             }
@@ -549,14 +576,22 @@ const loadFriends = async () => {
         
         // Fallback: no avatar or error loading
         return {
-          ...friend,
+          ...normalizedFriend,
           avatar: defaultAvatar
         }
       })
     )
     
-    // Normalize simple username strings into objects for consistent rendering
-    friends.value = friendsWithAvatars.map((f: any) => (typeof f === 'string' ? { username: f, avatar: defaultAvatar } : f))
+    // Create a new array reference to ensure Vue reactivity and deduplicate again (in case normalization created duplicates)
+    const uniqueFriends = new Map<string, Friend>()
+    friendsWithAvatars.forEach((friend: Friend) => {
+      const friendId = (friend as any).id || friend.username || (friend as any)._id || String(friend)
+      if (!uniqueFriends.has(friendId)) {
+        uniqueFriends.set(friendId, friend)
+      }
+    })
+    
+    friends.value = [...uniqueFriends.values()]
   } catch (error) {
     console.error('Error loading friends:', error)
   }
@@ -942,8 +977,14 @@ watch(user, (u) => {
   gap: 0.25rem;
 }
 
-.fire-emoji {
-  font-size: 1rem;
+.fire-icon {
+  width: auto;
+  height: 18px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .arc-stat-actions {
@@ -1005,10 +1046,12 @@ watch(user, (u) => {
   height: 20px;
   border-radius: 50%;
   object-fit: cover;
+  flex-shrink: 0;
 }
 
 .member-name {
   color: #333;
+  line-height: 1;
 }
 
 .progress-section {
