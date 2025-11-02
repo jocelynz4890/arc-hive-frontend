@@ -18,7 +18,8 @@
               class="spend-button"
               :title="userPoints < 10 ? `You need ${10 - userPoints} more points to unlock an avatar!` : ''"
             >
-              {{ loading ? 'Spending...' : '🎲 Spend 10 Points' }}
+              <img v-if="!loading" :src="diceIcon" alt="Dice" class="dice-icon" />
+              {{ loading ? 'Spending...' : 'Spend 10 Points' }}
             </button>
             <span v-if="userPoints < 10" class="insufficient-points-tooltip">
               ℹ️ Need {{ 10 - userPoints }} more points
@@ -183,6 +184,7 @@ import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Avatar, StatData } from '../types'
 import defaultAvatar from '../assets/default.png'
+import diceIcon from '../assets/dice.png'
 import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
@@ -789,6 +791,19 @@ onUnmounted(() => {
   font-size: 1rem;
   transition: all 0.1s ease;
   box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.dice-icon {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
 }
 
 .spend-button:hover:not(:disabled) {
@@ -844,6 +859,7 @@ onUnmounted(() => {
   border-radius: 50%;
   object-fit: cover;
   border: 4px solid rgba(255, 200, 221, 0.5);
+  background: #ffffff;
 }
 
 .avatar-info h4 {
@@ -997,9 +1013,9 @@ onUnmounted(() => {
 }
 
 .unlock-info {
-  background: #bde0fe;
+  background: #ffffff;
   border: 3px solid;
-  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  border-color: #e0e0e0 #a0a0a0 #a0a0a0 #e0e0e0;
   border-left: 6px solid #a2d2ff;
   border-radius: 0;
   padding: 1rem;

@@ -39,7 +39,7 @@
       
       <!-- Friends List -->
       <div class="friends-section">
-        <h3>Your Friends ({{ friends.length }})</h3>
+        <h3>Your Hive ({{ friends.length }})</h3>
         <div v-if="friends.length === 0" class="empty-state">
           <p>No friends yet. Share your friend code to start building your hive!</p>
         </div>
@@ -634,16 +634,23 @@ onMounted(() => {
 }
 
 .remove-button {
-  background: rgba(220, 53, 69, 0.1);
-  border: 1px solid rgba(220, 53, 69, 0.3);
-  border-radius: 5px;
+  background: #ffc8dd;
+  color: #333;
+  border: 2px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.5rem;
   cursor: pointer;
   font-size: 1rem;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
+  transition: all 0.1s ease;
 }
 
 .remove-button:hover {
-  background: rgba(220, 53, 69, 0.2);
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(1px, 1px);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 /* Modal Styles */

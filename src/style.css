@@ -13,6 +13,41 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  cursor: url('/cursor.png') 2 2, auto;
+}
+
+*:active {
+  cursor: url('/cursor-onclick.png') 2 2, auto;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
+button,
+a,
+.clickable,
+[role="button"] {
+  cursor: url('/hover.png') 8 2, pointer;
+}
+
+button:active,
+a:active,
+.clickable:active,
+[role="button"]:active {
+  cursor: url('/hover-onclick.png') 8 2, pointer;
+}
+
 a {
   font-weight: 500;
   color: #646cff;

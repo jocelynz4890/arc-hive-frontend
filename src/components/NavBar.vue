@@ -2,12 +2,6 @@
   <nav class="navbar">
     <div class="navbar-content">
       <div class="navbar-left">
-        <button @click="goHome" class="nav-button home-button">
-          🏠 Home
-        </button>
-      </div>
-      
-      <div class="navbar-center">
         <h1 class="app-title">ArcHive</h1>
       </div>
       
@@ -17,17 +11,25 @@
         </div>
         
         <div class="nav-icons">
-          <button @click="goToFriends" class="nav-icon" title="Friends">
-            🐝
+          <button @click="goHome" class="nav-button home-button">
+            <img :src="homeIcon" alt="Home" class="nav-icon-img" />
+            Home
           </button>
-          <button @click="goToArcs" class="nav-icon" title="Arcs">
-            📋
+          <button @click="goToFriends" class="nav-button" title="Hive">
+            <img :src="hiveIcon" alt="Hive" class="nav-icon-img" />
+            Hive
           </button>
-          <button @click="goToRewards" class="nav-icon" title="Rewards">
-            🎁
+          <button @click="goToArcs" class="nav-button" title="Arcs">
+            <img :src="arcsIcon" alt="Arcs" class="nav-icon-img" />
+            Arcs
           </button>
-          <button @click="logout" class="nav-icon logout-button" title="Logout">
-            🚪
+          <button @click="goToRewards" class="nav-button" title="Rewards">
+            <img :src="rewardsIcon" alt="Rewards" class="nav-icon-img" />
+            Rewards
+          </button>
+          <button @click="logout" class="nav-button logout-button" title="Logout">
+            <img :src="logoutIcon" alt="Logout" class="nav-icon-img" />
+            Logout
           </button>
         </div>
       </div>
@@ -38,6 +40,11 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import homeIcon from '../assets/home.png'
+import arcsIcon from '../assets/arcs.png'
+import rewardsIcon from '../assets/rewards.png'
+import logoutIcon from '../assets/logout.png'
+import hiveIcon from '../assets/hive.png'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -88,11 +95,6 @@ const logout = () => {
   flex: 1;
 }
 
-.navbar-center {
-  flex: 1;
-  text-align: center;
-}
-
 .navbar-right {
   flex: 1;
   display: flex;
@@ -114,6 +116,11 @@ const logout = () => {
   letter-spacing: 0.05em;
   transform: scale(0.98);
   transform-origin: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.25rem 0.5rem;
+  border: 2px solid #ffffff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+  display: inline-block;
 }
 
 .user-info {
@@ -134,7 +141,7 @@ const logout = () => {
   gap: 0.5rem;
 }
 
-.nav-button, .nav-icon {
+.nav-button {
   background: #bde0fe;
   border: 3px solid;
   border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
@@ -144,18 +151,22 @@ const logout = () => {
   transition: all 0.1s ease;
   font-size: 1rem;
   box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
-}
-
-.nav-icon {
-  padding: 0.5rem;
-  min-width: 40px;
-  height: 40px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
 }
 
-.nav-button:hover, .nav-icon:hover {
+.nav-icon-img {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+}
+
+.nav-button:hover {
   background: #a2d2ff;
   border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
   transform: translate(2px, 2px);
@@ -167,7 +178,4 @@ const logout = () => {
   border-color: #ffc8dd #ffafcc #ffafcc #ffc8dd;
 }
 
-.home-button {
-  font-weight: 600;
-}
 </style>

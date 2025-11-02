@@ -66,7 +66,7 @@ const getProgressPercentage = (stat: string) => {
 <style scoped>
 .stats-card {
   width: 100%;
-  height: 750px; 
+  height: 850px; 
   perspective: 1000px;
   cursor: pointer;
 }
@@ -106,29 +106,31 @@ const getProgressPercentage = (stat: string) => {
   /* Layout the back side starting from the top so progress bars can use full height */
   justify-content: flex-start;
   align-items: stretch;
+  padding-top: 1rem;
 }
 
 .card-front h3, .card-back h3 {
-  margin: 0 0 1rem 0;
+  margin: 0 0 0.75rem 0;
   color: #333;
   font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .progress-bars {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem; /* more space between progress bars */
-  /* Allow scrolling if there are many stats; leave space for the header and hints */
-  max-height: calc(100% - 160px);
-  overflow-y: auto;
+  gap: 1rem;
+  flex: 1;
+  overflow-y: hidden;
   padding-right: 0.5rem;
 }
 
 .progress-item {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .radar-chart {
@@ -145,16 +147,19 @@ const getProgressPercentage = (stat: string) => {
   font-weight: 600;
   color: #333;
   text-align: left;
+  font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 .progress-bar {
   width: 100%;
-  height: 20px;
+  height: 18px;
   background: #bde0fe;
   border: 2px solid #a2d2ff;
   border-radius: 0;
   overflow: hidden;
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 }
 
 .progress-fill {
@@ -167,9 +172,10 @@ const getProgressPercentage = (stat: string) => {
 }
 
 .progress-text {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #666;
   text-align: left;
+  flex-shrink: 0;
 }
 
 .flip-hint {
@@ -177,6 +183,8 @@ const getProgressPercentage = (stat: string) => {
   font-size: 0.8rem;
   color: #999;
   font-style: italic;
+  flex-shrink: 0;
+  padding-top: 0.5rem;
 }
 
 .stats-card:hover .card-inner {

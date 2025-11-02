@@ -25,27 +25,26 @@
           >
             <div class="arc-header">
               <h3>{{ arc.name }}</h3>
-              <div class="arc-streak">{{ arc.streak }} days</div>
-            </div>
-            
-            <div class="arc-stat">
-              <span class="stat-label">{{ arc.stat }}</span>
+              <div class="arc-streak">
+                {{ arc.streak }} days
+                <span v-if="wasCompletedYesterday(arc)" class="fire-emoji">🔥</span>
+              </div>
             </div>
             
             <div class="arc-members">
               <h4>Members ({{ arc.members.length }})</h4>
               <div class="members-list">
                 <div 
-                  v-for="member in arc.members" 
-                  :key="member.username"
+                  v-for="(member, idx) in arc.members" 
+                  :key="typeof member === 'string' ? member : (member.username || member.id || idx)"
                   class="member-item"
                 >
                   <img 
                     :src="(member as Friend).avatar || defaultAvatar" 
-                    :alt="member.username"
+                    :alt="typeof member === 'string' ? member : (member.username || member.id || String(member))"
                     class="member-avatar"
                   />
-                  <span class="member-name">{{ member.username }}</span>
+                  <span class="member-name">{{ typeof member === 'string' ? member : (member.username || member.id || String(member)) }}</span>
                 </div>
               </div>
             </div>
@@ -54,7 +53,10 @@
               <h4>Today's Progress</h4>
               <div class="progress-lists">
                 <div class="completed-list">
-                  <h5>✅ Completed</h5>
+                  <h5>
+                    <img :src="completedIcon" alt="Completed" class="status-icon" />
+                    Completed
+                  </h5>
                   <div v-if="getCompletedMembers(arc).length === 0" class="no-members">
                     No one yet
                   </div>
@@ -70,28 +72,34 @@
                 </div>
                 
                 <div class="incomplete-list">
-                  <h5>⏳ Incomplete</h5>
+                  <h5>
+                    <img :src="incompletedIcon" alt="Incomplete" class="status-icon" />
+                    Incomplete
+                  </h5>
                   <div v-if="getIncompleteMembers(arc).length === 0" class="no-members">
                     Everyone done!
                   </div>
                   <div v-else>
                     <div 
-                      v-for="member in getIncompleteMembers(arc)" 
-                      :key="member.username"
+                      v-for="(member, idx) in getIncompleteMembers(arc)" 
+                      :key="typeof member === 'string' ? member : (member.username || member.id || idx)"
                       class="member-progress incomplete"
                     >
-                      {{ member.username }}
+                      {{ typeof member === 'string' ? member : (member.username || member.id || String(member)) }}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             
-            <div class="arc-actions">
+            <div class="arc-stat-actions">
+              <span class="stat-label">{{ arc.stat }}</span>
               <button @click.stop="editArc(arc)" class="edit-button">
-                ✏️ Edit Members
+                <img :src="pencilIcon" alt="Edit" class="edit-icon" />
+                Edit Members
               </button>
             </div>
+            
           </div>
         </div>
         
@@ -244,6 +252,9 @@ import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Arc, Friend, User } from '../types'
 import defaultAvatar from '../assets/default.png'
+import pencilIcon from '../assets/pencil.png'
+import completedIcon from '../assets/completed.png'
+import incompletedIcon from '../assets/incompleted.png'
 import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
@@ -711,6 +722,12 @@ const isCompletedToday = (arc: Arc) => {
   return userCompleted
 }
 
+const wasCompletedYesterday = (arc: Arc) => {
+  // If streak is greater than 0, it means the arc was completed yesterday
+  // (otherwise the streak would have been reset to 0 during the daily refresh)
+  return arc.streak > 0
+}
+
 const getCompletedMembers = (arc: Arc) => {
   if (!arc.progress) return []
   return arc.progress.filter((p) => p.dailyProgress)
@@ -726,11 +743,17 @@ const getIncompleteMembers = (arc: Arc) => {
   const completedUsernames = new Set(
     arc.progress
       .filter((p) => p.dailyProgress)
-      .map((p) => p.user.username)
+      .map((p) => {
+        const user = p.user
+        return typeof user === 'string' ? user : (user.username || user.id || String(user))
+      })
   )
   
   // Return members who don't have completed progress
-  return arc.members.filter((m) => !completedUsernames.has(m.username))
+  return arc.members.filter((m) => {
+    const memberUsername = typeof m === 'string' ? m : (m.username || m.id || String(m))
+    return !completedUsernames.has(memberUsername)
+  })
 }
 
 const closeCreateArcModal = () => {
@@ -892,49 +915,73 @@ watch(user, (u) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
 }
 
 .arc-header h3 {
   margin: 0;
   color: #333;
-  font-size: 1.2rem;
+  font-size: 1.5rem;
+  font-family: 'Silkscreen', monospace !important;
 }
 
 .arc-streak {
-  background: #bde0fe;
+  background: #ffc89d;
   color: #333;
-  padding: 0.25rem 0.75rem;
+  padding: 0.5rem 1rem;
   border-radius: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border: 2px solid #a2d2ff;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+  font-size: 1rem;
+  font-weight: 700;
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-.arc-stat {
-  margin-bottom: 1rem;
+.fire-emoji {
+  font-size: 1rem;
+}
+
+.arc-stat-actions {
+  margin-top: 1.5rem;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .stat-label {
-  background: #a2d2ff;
+  background: #fffacd;
   color: #333;
-  padding: 0.25rem 0.75rem;
+  padding: 0.4rem 1rem;
   border-radius: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border: 2px solid #bde0fe;
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 2px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .arc-members {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid #cdb4db;
 }
 
 .arc-members h4 {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.75rem 0;
   color: #333;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .members-list {
@@ -965,13 +1012,18 @@ watch(user, (u) => {
 }
 
 .progress-section {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid #cdb4db;
 }
 
 .progress-section h4 {
   margin: 0 0 0.75rem 0;
   color: #333;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .progress-lists {
@@ -983,6 +1035,18 @@ watch(user, (u) => {
 .completed-list h5, .incomplete-list h5 {
   margin: 0 0 0.5rem 0;
   font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-icon {
+  width: 18px;
+  height: 18px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
 }
 
 .completed-list h5 {
@@ -1019,6 +1083,7 @@ watch(user, (u) => {
 .arc-actions {
   display: flex;
   justify-content: flex-end;
+  margin-top: 1rem;
 }
 
 .edit-button {
@@ -1031,6 +1096,19 @@ watch(user, (u) => {
   font-size: 0.9rem;
   transition: all 0.1s ease;
   box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.edit-icon {
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
 }
 
 .edit-button:hover {

@@ -109,8 +109,15 @@ watch(() => props.friend, () => {})
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #eee;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 2px solid #cdb4db;
+  background: #f5f5f5;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
 }
 
 .modal-body {
@@ -136,11 +143,17 @@ watch(() => props.friend, () => {})
 .close-button {
   background: none;
   border: none;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   cursor: pointer;
-  color: #666; /* make the X visible on white backgrounds */
+  color: #666;
   transition: color 0.15s ease;
-  padding: 0.25rem;
+  padding: 0;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-button:hover {

@@ -618,7 +618,8 @@ watch(user, (u) => {
 .stats-container {
   background: #bde0fe;
   border-radius: 0;
-  padding: 1.5rem;
+  padding: 2rem 1.5rem;
+  min-height: 900px;
   border: 4px solid;
   border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
   box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
