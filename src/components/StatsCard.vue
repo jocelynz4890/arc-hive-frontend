@@ -89,10 +89,12 @@ const getProgressPercentage = (stat: string) => {
   width: 100%;
   height: 100%;
   backface-visibility: hidden;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
+  background: #ffffff;
+  border: 4px solid;
+  border-color: #e0e0e0 #a0a0a0 #a0a0a0 #e0e0e0;
+  border-radius: 0;
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -148,16 +150,20 @@ const getProgressPercentage = (stat: string) => {
 .progress-bar {
   width: 100%;
   height: 20px;
-  background: rgba(102, 126, 234, 0.1);
-  border-radius: 10px;
+  background: #bde0fe;
+  border: 2px solid #a2d2ff;
+  border-radius: 0;
   overflow: hidden;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  border-radius: 10px;
+  background: #ffc8dd;
+  border-radius: 0;
   transition: width 0.3s ease;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.1);
+  border-right: 2px solid #ffafcc;
 }
 
 .progress-text {

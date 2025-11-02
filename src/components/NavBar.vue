@@ -66,13 +66,13 @@ const logout = () => {
 
 <style scoped>
 .navbar {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: #ffc8dd;
+  border-bottom: 4px solid #ffafcc;
   padding: 0.5rem 0;
   position: sticky;
   top: 0;
   z-index: 1000;
+  box-shadow: 0 4px 0 #ffafcc, 0 8px 0 rgba(0, 0, 0, 0.1);
 }
 
 .navbar-content {
@@ -106,10 +106,14 @@ const logout = () => {
   font-size: 1.5rem;
   font-weight: bold;
   font-family: 'Silkscreen', monospace !important;
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #bde0fe;
+  text-shadow: 2px 2px 0 #a2d2ff;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  letter-spacing: 0.05em;
+  transform: scale(0.98);
+  transform-origin: center;
 }
 
 .user-info {
@@ -131,14 +135,15 @@ const logout = () => {
 }
 
 .nav-button, .nav-icon {
-  /* Lilac button backgrounds */
-  background: linear-gradient(90deg, #f3e8ff 0%, #e0ccff 50%, #d6b8ff 100%);
-  border: 1px solid rgba(180, 150, 210, 0.4);
-  border-radius: 8px;
+  background: #bde0fe;
+  border: 3px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  border-radius: 0;
   padding: 0.5rem 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.1s ease;
   font-size: 1rem;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .nav-icon {
@@ -151,14 +156,15 @@ const logout = () => {
 }
 
 .nav-button:hover, .nav-icon:hover {
-  background: linear-gradient(90deg, #e9d6ff 0%, #d6b8ff 100%);
-  border-color: rgba(150, 120, 190, 0.75);
-  transform: translateY(-1px);
+  background: #a2d2ff;
+  border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .logout-button:hover {
-  background: rgba(220, 53, 69, 0.12);
-  border-color: rgba(220, 53, 69, 0.35);
+  background: #ffafcc;
+  border-color: #ffc8dd #ffafcc #ffafcc #ffc8dd;
 }
 
 .home-button {

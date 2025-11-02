@@ -465,25 +465,39 @@ onMounted(() => {
 .code-input {
   flex: 1;
   padding: 0.75rem;
-  border: 2px solid rgba(102, 126, 234, 0.2);
-  border-radius: 8px;
+  border: 3px solid;
+  border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
+  border-radius: 0;
   font-size: 1rem;
+  background: #ffc8dd;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .code-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #ffafcc #bde0fe #bde0fe #ffafcc;
+  background: #ffafcc;
 }
 
 .add-friend-button {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  border: none;
+  background: #ffc8dd;
+  color: #333;
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.75rem 1.5rem;
-  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
   white-space: nowrap;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.1s ease;
+}
+
+.add-friend-button:hover:not(:disabled) {
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .add-friend-button:disabled {
@@ -495,10 +509,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(102, 126, 234, 0.1);
+  background: #bde0fe;
   padding: 0.75rem;
-  border-radius: 8px;
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 0;
+  border: 3px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .code-text {
@@ -509,12 +525,22 @@ onMounted(() => {
 }
 
 .copy-button {
-  background: rgba(102, 126, 234, 0.2);
-  border: none;
+  background: #ffc8dd;
+  border: 2px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.5rem;
-  border-radius: 5px;
   cursor: pointer;
   font-size: 1.2rem;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
+  transition: all 0.1s ease;
+}
+
+.copy-button:hover {
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(1px, 1px);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .copy-feedback {
@@ -529,10 +555,12 @@ onMounted(() => {
 }
 
 .friends-section {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
+  background: #bde0fe;
+  border-radius: 0;
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 4px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
 }
 
 .friends-section h3 {
@@ -553,20 +581,23 @@ onMounted(() => {
 }
 
 .friend-card {
-  background: rgba(102, 126, 234, 0.1);
-  border-radius: 10px;
+  background: #ffc8dd;
+  border-radius: 0;
   padding: 1rem;
-  border: 1px solid rgba(102, 126, 234, 0.2);
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.1s ease;
   display: flex;
   align-items: center;
   gap: 1rem;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
 }
 
 .friend-card:hover {
-  background: rgba(102, 126, 234, 0.2);
-  transform: translateY(-2px);
+  background: #ffafcc;
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .friend-avatar {

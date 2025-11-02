@@ -819,26 +819,33 @@ watch(user, (u) => {
 }
 
 .create-arc-button {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  border: none;
+  background: #ffc8dd;
+  color: #333;
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.75rem 1.5rem;
-  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
   font-size: 1rem;
-  transition: transform 0.2s ease;
+  transition: all 0.1s ease;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .create-arc-button:hover {
-  transform: translateY(-1px);
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .arcs-section {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
+  background: #bde0fe;
+  border-radius: 0;
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 4px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
 }
 
 .empty-state {
@@ -859,22 +866,26 @@ watch(user, (u) => {
 }
 
 .arc-card {
-  background: rgba(102, 126, 234, 0.1);
-  border-radius: 15px;
+  background: #ffc8dd;
+  border-radius: 0;
   padding: 1.5rem;
-  border: 2px solid rgba(102, 126, 234, 0.2);
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.1s ease;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
 }
 
 .arc-card:hover {
-  background: rgba(102, 126, 234, 0.15);
-  transform: translateY(-2px);
+  background: #ffafcc;
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .arc-card.completed-today {
-  border-color: #28a745;
-  background: rgba(40, 167, 69, 0.1);
+  border-color: #28a745 #20c952 #20c952 #28a745;
+  background: #d4edda;
+  box-shadow: 3px 3px 0 #28a745;
 }
 
 .arc-header {
@@ -891,12 +902,14 @@ watch(user, (u) => {
 }
 
 .arc-streak {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
+  background: #bde0fe;
+  color: #333;
   padding: 0.25rem 0.75rem;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.9rem;
   font-weight: 600;
+  border: 2px solid #a2d2ff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .arc-stat {
@@ -904,12 +917,14 @@ watch(user, (u) => {
 }
 
 .stat-label {
-  background: rgba(118, 75, 162, 0.2);
-  color: #764ba2;
+  background: #a2d2ff;
+  color: #333;
   padding: 0.25rem 0.75rem;
-  border-radius: 15px;
+  border-radius: 0;
   font-size: 0.9rem;
   font-weight: 600;
+  border: 2px solid #bde0fe;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .arc-members {
@@ -975,7 +990,7 @@ watch(user, (u) => {
 }
 
 .incomplete-list h5 {
-  color: #ffc107;
+  color: #dc3545;
 }
 
 .no-members {
@@ -997,8 +1012,8 @@ watch(user, (u) => {
 }
 
 .member-progress.incomplete {
-  background: rgba(255, 193, 7, 0.2);
-  color: #ffc107;
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
 }
 
 .arc-actions {
@@ -1007,17 +1022,22 @@ watch(user, (u) => {
 }
 
 .edit-button {
-  background: rgba(102, 126, 234, 0.2);
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  border-radius: 5px;
+  background: #bde0fe;
+  border: 2px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  border-radius: 0;
   padding: 0.5rem 1rem;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: all 0.2s ease;
+  transition: all 0.1s ease;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .edit-button:hover {
-  background: rgba(102, 126, 234, 0.3);
+  background: #a2d2ff;
+  border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
+  transform: translate(1px, 1px);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .pagination {
@@ -1029,21 +1049,27 @@ watch(user, (u) => {
 }
 
 .page-button {
-  background: rgba(102, 126, 234, 0.2);
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  border-radius: 5px;
+  background: #bde0fe;
+  border: 2px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  border-radius: 0;
   padding: 0.5rem 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.1s ease;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .page-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  background: #cdb4db;
 }
 
 .page-button:hover:not(:disabled) {
-  background: rgba(102, 126, 234, 0.3);
+  background: #a2d2ff;
+  border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
+  transform: translate(1px, 1px);
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .page-info {
@@ -1114,22 +1140,29 @@ watch(user, (u) => {
 .form-input {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid rgba(102, 126, 234, 0.2);
-  border-radius: 8px;
+  border: 3px solid;
+  border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
+  border-radius: 0;
   font-size: 1rem;
+  background: #ffc8dd;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #ffafcc #bde0fe #bde0fe #ffafcc;
+  background: #ffafcc;
 }
 
 .members-selection {
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid rgba(102, 126, 234, 0.2);
-  border-radius: 8px;
+  border: 3px solid;
+  border-color: #cdb4db #a2d2ff #a2d2ff #cdb4db;
+  border-radius: 0;
   padding: 0.5rem;
+  background: #ffc8dd;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .member-option {
@@ -1137,12 +1170,12 @@ watch(user, (u) => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem;
-  border-radius: 5px;
-  transition: background 0.2s ease;
+  border-radius: 0;
+  transition: background 0.1s ease;
 }
 
 .member-option:hover {
-  background: rgba(102, 126, 234, 0.1);
+  background: #ffafcc;
 }
 
 .member-checkbox {
@@ -1180,13 +1213,23 @@ watch(user, (u) => {
 }
 
 .submit-button {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  border: none;
-  border-radius: 5px;
+  background: #ffc8dd;
+  color: #333;
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.75rem 1.5rem;
   cursor: pointer;
   font-weight: 600;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.1s ease;
+}
+
+.submit-button:hover {
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .submit-button:disabled {

@@ -773,26 +773,29 @@ onUnmounted(() => {
 .points-value {
   font-size: 2rem;
   font-weight: bold;
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #bde0fe;
+  text-shadow: 3px 3px 0 #a2d2ff, 6px 6px 0 rgba(0, 0, 0, 0.2);
 }
 
 .spend-button {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  border: none;
+  background: #ffc8dd;
+  color: #333;
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.75rem 1.5rem;
-  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
   font-size: 1rem;
-  transition: transform 0.2s ease;
+  transition: all 0.1s ease;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .spend-button:hover:not(:disabled) {
-  transform: translateY(-1px);
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .spend-button:disabled {
@@ -816,10 +819,12 @@ onUnmounted(() => {
 }
 
 .current-avatar-section, .owned-avatars-section, .available-avatars-section {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
+  background: #bde0fe;
+  border-radius: 0;
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 4px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
 }
 
 .current-avatar-section h3, .owned-avatars-section h3, .available-avatars-section h3 {
@@ -838,7 +843,7 @@ onUnmounted(() => {
   height: 100px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid rgba(102, 126, 234, 0.3);
+  border: 4px solid rgba(255, 200, 221, 0.5);
 }
 
 .avatar-info h4 {
@@ -866,8 +871,8 @@ onUnmounted(() => {
 }
 
 .affinity-item {
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  background: rgba(205, 180, 219, 0.2);
+  color: #cdb4db;
   padding: 0.25rem 0.5rem;
   border-radius: 5px;
   font-size: 0.8rem;
@@ -887,26 +892,29 @@ onUnmounted(() => {
 }
 
 .avatar-card {
-  background: rgba(102, 126, 234, 0.1);
-  border-radius: 10px;
+  background: #ffc8dd;
+  border-radius: 0;
   padding: 1rem;
-  border: 2px solid rgba(102, 126, 234, 0.2);
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.1s ease;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
 }
 
 .avatar-card:hover {
-  background: rgba(102, 126, 234, 0.15);
-  transform: translateY(-2px);
+  background: #ffafcc;
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .avatar-card.selected {
-  border-color: #28a745;
-  background: rgba(40, 167, 69, 0.1);
+  border-color: #bde0fe #a2d2ff #a2d2ff #bde0fe;
+  background: #a2d2ff;
 }
 
 .avatar-card.available {
@@ -957,14 +965,16 @@ onUnmounted(() => {
 }
 
 .affinity-small {
-  background: rgba(118, 75, 162, 0.2);
-  color: #764ba2;
+  background: #a2d2ff;
+  color: #333;
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: 0;
   font-size: 0.65rem;
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
+  border: 1px solid #bde0fe;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .locked-overlay {
@@ -987,11 +997,14 @@ onUnmounted(() => {
 }
 
 .unlock-info {
-  background: rgba(102, 126, 234, 0.1);
-  border-left: 4px solid #667eea;
-  border-radius: 8px;
+  background: #bde0fe;
+  border: 3px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  border-left: 6px solid #a2d2ff;
+  border-radius: 0;
   padding: 1rem;
   margin-bottom: 1rem;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .info-text {
@@ -1091,7 +1104,7 @@ onUnmounted(() => {
   object-fit: cover;
   margin: 0 auto 1rem auto;
   display: block;
-  border: 4px solid rgba(102, 126, 234, 0.3);
+  border: 4px solid rgba(255, 200, 221, 0.5);
 }
 
 .gacha-info h4 {
@@ -1110,14 +1123,23 @@ onUnmounted(() => {
 }
 
 .continue-button {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  border: none;
+  background: #ffc8dd;
+  color: #333;
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.75rem 2rem;
-  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 1rem;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.1s ease;
+}
+
+.continue-button:hover {
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 768px) {

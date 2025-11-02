@@ -140,11 +140,12 @@ const handleSubmit = async () => {
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 20px;
+  background: #ffffff;
+  border: 4px solid;
+  border-color: #e0e0e0 #a0a0a0 #a0a0a0 #e0e0e0;
+  border-radius: 0;
   padding: 3rem;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
   width: 100%;
 }
 
@@ -156,11 +157,16 @@ const handleSubmit = async () => {
 .app-title {
   font-size: 2.5rem;
   font-weight: bold;
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: 'Silkscreen', monospace !important;
+  color: #333;
+  text-shadow: 2px 2px 0 #ffc8dd;
   margin: 0 0 0.5rem 0;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  letter-spacing: 0.05em;
+  transform: scale(0.98);
+  transform-origin: center;
 }
 
 .subtitle {
@@ -172,10 +178,12 @@ const handleSubmit = async () => {
 .auth-tabs {
   display: flex;
   margin-bottom: 2rem;
-  background: rgba(102, 126, 234, 0.15);
-  border-radius: 12px;
+  background: #f5f5f5;
+  border-radius: 0;
   padding: 6px;
-  border: 2px solid rgba(102, 126, 234, 0.2);
+  border: 3px solid;
+  border-color: #e0e0e0 #a0a0a0 #a0a0a0 #e0e0e0;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
 }
 
 .tab-button {
@@ -183,9 +191,9 @@ const handleSubmit = async () => {
   background: transparent;
   border: none;
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.1s ease;
   font-weight: 700;
   font-size: 1rem;
   color: #555;
@@ -193,15 +201,16 @@ const handleSubmit = async () => {
 }
 
 .tab-button:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: #e0e0e0;
   color: #333;
 }
 
 .tab-button.active {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-  transform: translateY(-1px);
+  background: #ffc8dd;
+  color: #333;
+  border: 2px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .auth-form {
@@ -225,16 +234,20 @@ const handleSubmit = async () => {
 
 .form-input {
   padding: 0.875rem 1rem;
-  border: 2px solid rgba(102, 126, 234, 0.2);
-  border-radius: 8px;
+  border: 3px solid;
+  border-color: #e0e0e0 #a0a0a0 #a0a0a0 #e0e0e0;
+  border-radius: 0;
   font-size: 1rem;
-  transition: border-color 0.2s ease;
+  transition: all 0.1s ease;
   width: 100%;
+  background: #ffffff;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #ffc8dd #ffafcc #ffafcc #ffc8dd;
+  background: #fff5f9;
 }
 
 .error-message {
@@ -247,20 +260,25 @@ const handleSubmit = async () => {
 }
 
 .submit-button {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  border: none;
+  background: #ffc8dd;
+  color: #333;
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.75rem;
-  border-radius: 8px;
   font-size: 1rem;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.1s ease;
   font-weight: 600;
   margin-top: 2rem;
   cursor: pointer;
-  transition: transform 0.2s ease;
 }
 
 .submit-button:hover:not(:disabled) {
-  transform: translateY(-1px);
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .submit-button:disabled {

@@ -46,24 +46,24 @@ const createChart = () => {
         {
           label: 'Completed',
           data: completedData,
-          backgroundColor: 'rgba(102, 126, 234, 0.2)',
-          borderColor: 'rgba(102, 126, 234, 1)',
+          backgroundColor: 'rgba(255, 200, 221, 0.3)',
+          borderColor: '#ffc8dd',
           borderWidth: 2,
-          pointBackgroundColor: 'rgba(102, 126, 234, 1)',
+          pointBackgroundColor: '#ffc8dd',
           pointBorderColor: '#fff',
           pointHoverBackgroundColor: '#fff',
-          pointHoverBorderColor: 'rgba(102, 126, 234, 1)'
+          pointHoverBorderColor: '#ffc8dd'
         },
         {
           label: 'Total',
           data: totalData,
-          backgroundColor: 'rgba(118, 75, 162, 0.1)',
-          borderColor: 'rgba(118, 75, 162, 0.5)',
+          backgroundColor: 'rgba(189, 224, 254, 0.2)',
+          borderColor: 'rgba(162, 210, 255, 0.6)',
           borderWidth: 1,
-          pointBackgroundColor: 'rgba(118, 75, 162, 0.5)',
+          pointBackgroundColor: 'rgba(162, 210, 255, 0.6)',
           pointBorderColor: '#fff',
           pointHoverBackgroundColor: '#fff',
-          pointHoverBorderColor: 'rgba(118, 75, 162, 0.5)'
+          pointHoverBorderColor: 'rgba(162, 210, 255, 0.6)'
         }
       ]
     },

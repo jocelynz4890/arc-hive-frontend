@@ -563,10 +563,12 @@ watch(user, (u) => {
 }
 
 .avatar-section {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
+  background: #bde0fe;
+  border-radius: 0;
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 4px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
 }
 
 .avatar-container {
@@ -636,10 +638,12 @@ watch(user, (u) => {
 }
 
 .stats-container {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
+  background: #bde0fe;
+  border-radius: 0;
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 4px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
 }
 
 .content-section {
@@ -649,10 +653,12 @@ watch(user, (u) => {
 }
 
 .arcs-preview, .friends-preview {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
+  background: #bde0fe;
+  border-radius: 0;
   padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 4px solid;
+  border-color: #a2d2ff #cdb4db #cdb4db #a2d2ff;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
 }
 
 .section-header {
@@ -668,18 +674,23 @@ watch(user, (u) => {
 }
 
 .add-button {
-  background: linear-gradient(45deg, #667eea, #764ba2);
-  color: white;
-  border: none;
+  background: #ffc8dd;
+  color: #333;
+  border: 3px solid;
+  border-color: #ffafcc #cdb4db #cdb4db #ffafcc;
+  border-radius: 0;
   padding: 0.5rem 1rem;
-  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
-  transition: transform 0.2s ease;
+  transition: all 0.1s ease;
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .add-button:hover {
-  transform: translateY(-1px);
+  background: #ffafcc;
+  border-color: #cdb4db #ffafcc #ffafcc #cdb4db;
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .preview-content {
@@ -702,10 +713,12 @@ watch(user, (u) => {
 }
 
 .arc-preview-card, .friend-preview-card {
-  background: rgba(102, 126, 234, 0.1);
-  border-radius: 10px;
+  background: #ffffff;
+  border-radius: 0;
   padding: 1rem;
-  border: 1px solid rgba(102, 126, 234, 0.2);
+  border: 3px solid;
+  border-color: #e0e0e0 #a0a0a0 #a0a0a0 #e0e0e0;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
 }
 
 .friend-preview-card {
@@ -714,8 +727,9 @@ watch(user, (u) => {
 }
 
 .friend-preview-card:hover {
-  background: rgba(102, 126, 234, 0.2);
-  transform: translateY(-1px);
+  background: #f5f5f5;
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .arc-preview-card h4, .friend-preview-card h4 {
@@ -730,14 +744,16 @@ watch(user, (u) => {
 }
 
 .arc-stat {
-  background: rgba(118, 75, 162, 0.2);
-  color: #764ba2;
+  background: #a2d2ff;
+  color: #333;
   padding: 0.25rem 0.5rem;
-  border-radius: 5px;
+  border-radius: 0;
   font-size: 0.8rem;
   font-weight: 600;
   display: inline-block;
   margin-top: 0.5rem;
+  border: 2px solid #bde0fe;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .friend-preview-card {
