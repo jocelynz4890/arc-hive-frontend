@@ -47,15 +47,24 @@ export function subscribeToEvents(onMessage: (event: MessageEvent<any>) => void)
   // API_BASE is either '/api' or 'https://arc-hive-backend.onrender.com'
   // We need '/api/events' in both cases
   const url = API_BASE === '/api' ? '/api/events' : `${API_BASE}/api/events`
+  console.log('[SSE] Connecting to:', url)
   const es = new EventSource(url)
-  const handler = (e: MessageEvent) => onMessage(e)
+  const handler = (e: MessageEvent) => {
+    console.log('[SSE] Received event:', e.type, e.data)
+    onMessage(e)
+  }
   es.addEventListener('daily-refresh-complete', handler as EventListener)
   // generic messages (optional)
   es.onmessage = handler
-  es.onerror = () => {
+  es.onerror = (e) => {
     // Let browser auto-reconnect based on retry sent by server.
+    console.warn('[SSE] Connection error:', e)
+  }
+  es.onopen = () => {
+    console.log('[SSE] Connection opened')
   }
   return () => {
+    console.log('[SSE] Closing connection')
     try { es.close() } catch {}
   }
 }
