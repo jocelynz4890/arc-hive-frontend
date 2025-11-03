@@ -273,6 +273,7 @@ const itemsPerPage = 10
 const editingArc = ref<Arc | null>(null)
 const editingArcMembers = ref<Friend[]>([])
 let unsubscribeEvents: (() => void) | null = null
+let pollInterval: ReturnType<typeof setInterval> | null = null
 
 const newArc = ref({
   name: '',
@@ -856,11 +857,16 @@ onMounted(() => {
   // Subscribe to SSE to refresh when backend completes daily refresh
   unsubscribeEvents = subscribeToEvents(async (e) => {
     if (e.type === 'daily-refresh-complete') {
-      console.log('[ArcsPage] Received daily-refresh-complete event')
       await loadArcs()
       await loadFriends()
     }
   })
+  
+  // Fallback: Poll for updates every 60 seconds
+  pollInterval = setInterval(() => {
+    loadArcs()
+    loadFriends()
+  }, 60000)
   
   // Wait a bit for auth to settle
   setTimeout(() => {
@@ -898,6 +904,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (unsubscribeEvents) unsubscribeEvents()
+  if (pollInterval) clearInterval(pollInterval)
 })
 
 // If the auth store initializes after mount, reload data when user becomes available

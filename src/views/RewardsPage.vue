@@ -197,6 +197,7 @@ import { enhanceAvatarWithImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
 let unsubscribeEvents: (() => void) | null = null
+let pollInterval: ReturnType<typeof setInterval> | null = null
 
 // Data
 const userPoints = ref(0)
@@ -656,15 +657,19 @@ onMounted(() => {
   // Subscribe to backend SSE to refresh when daily refresh completes
   unsubscribeEvents = subscribeToEvents(async (e) => {
     if (e.type === 'daily-refresh-complete') {
-      console.log('[RewardsPage] Received daily-refresh-complete event')
       await loadRewards()
     }
   })
   
+  // Fallback: Poll for updates every 60 seconds
+  pollInterval = setInterval(() => {
+    loadRewards()
+  }, 60000)
 })
 
 onBeforeUnmount(() => {
   if (unsubscribeEvents) unsubscribeEvents()
+  if (pollInterval) clearInterval(pollInterval)
 })
 </script>
 

@@ -379,13 +379,13 @@ const loadFriendsOnly = async () => {
 }
 
 let unsubscribeEvents: (() => void) | null = null
+let pollInterval: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   loadUserData()
   // Subscribe to backend SSE to refresh when daily refresh completes
   unsubscribeEvents = subscribeToEvents(async (e) => {
     if (e.type === 'daily-refresh-complete') {
-      console.log('[HomePage] Received daily-refresh-complete event')
       await loadUserData()
       if (selectedFriend.value) {
         const id = selectedFriend.value.username || (selectedFriend.value as any).id
@@ -403,6 +403,11 @@ onMounted(() => {
       }
     }
   })
+  
+  // Fallback: Poll for updates every 60 seconds
+  pollInterval = setInterval(() => {
+    loadUserData()
+  }, 60000)
   
   // Listen for local avatar changes from Rewards page
   const onAvatarChanged = (e: Event) => {
@@ -430,6 +435,7 @@ onMounted(() => {
 
 onUnmounted(() => { 
   if (unsubscribeEvents) unsubscribeEvents()
+  if (pollInterval) clearInterval(pollInterval)
 })
 
 // If auth store initializes later, reload data
