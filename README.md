@@ -22,7 +22,13 @@ All located at the top level of this repository.
 Force a refresh for testing with:
 
 ```
+# Local development
 curl -X POST http://localhost:8000/api/DailyRefresh/trigger \
+       -H "Content-Type: application/json" \
+       -d '{"secret":"change-me-in-production"}'
+
+# Production (use HTTPS!)
+curl -X POST https://arc-hive-backend.onrender.com/api/DailyRefresh/trigger \
        -H "Content-Type: application/json" \
        -d '{"secret":"<INSERT_SECRET_HERE>"}'
 ```

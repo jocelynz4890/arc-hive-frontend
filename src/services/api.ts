@@ -44,8 +44,9 @@ apiService.interceptors.response.use(
 
 // --- SSE client for server-sent events ---
 export function subscribeToEvents(onMessage: (event: MessageEvent<any>) => void): () => void {
-  const base = API_BASE === '/api' ? '' : API_BASE
-  const url = `${base}/api/events` // backend exposes /api/events
+  // API_BASE is either '/api' or 'https://arc-hive-backend.onrender.com'
+  // We need '/api/events' in both cases
+  const url = API_BASE === '/api' ? '/api/events' : `${API_BASE}/api/events`
   const es = new EventSource(url)
   const handler = (e: MessageEvent) => onMessage(e)
   es.addEventListener('daily-refresh-complete', handler as EventListener)
