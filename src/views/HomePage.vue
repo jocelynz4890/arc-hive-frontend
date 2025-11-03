@@ -89,12 +89,10 @@
               >
                 <div class="friend-avatar">
                   <img 
-                    v-if="friend.avatar"
-                    :src="friend.avatar" 
+                    :src="friend.avatar || defaultAvatar" 
                     :alt="friend.username"
                     class="friend-avatar-img"
                   />
-                  <div v-else class="friend-avatar-img friend-avatar-placeholder"></div>
                 </div>
                 <div class="friend-info">
                   <h4>{{ friend.username }}</h4>
@@ -304,16 +302,20 @@ const loadUserData = async () => {
       const currentResp = await apiService.post('/Rewarding/getCurrentAvatar', { user: statsUserId })
       const currentId = currentResp.data?.avatar || ''
       if (currentId && currentId !== '') {
+        // Resolve definition to get the display name if ID != name
         try {
           const defResp = await apiService.post('/Rewarding/getAvatarsByIds', { ids: [currentId] })
           const defs = defResp.data?.avatars || []
-          if (defs.length > 0 && defs[0].name) {
-            const enhanced = enhanceAvatarWithImage(defs[0].name)
-            currentAvatar.value = enhanced
-            const userId = statsUserId
-            if (userId) localStorage.setItem(`currentAvatarName_${userId}`, enhanced.name)
-          }
-        } catch {}
+          const displayName = defs.length > 0 && defs[0].name ? defs[0].name : currentId
+          const enhanced = enhanceAvatarWithImage(displayName)
+          currentAvatar.value = enhanced
+          const userId = statsUserId
+          if (userId) localStorage.setItem(`currentAvatarName_${userId}`, enhanced.name)
+        } catch {
+          // Fallback: map directly
+          const enhanced = enhanceAvatarWithImage(currentId)
+          currentAvatar.value = enhanced
+        }
       }
     } catch {}
 
@@ -353,18 +355,20 @@ const loadFriendsOnly = async () => {
         const avatarResp = await apiService.post('/Rewarding/getCurrentAvatar', { user: friendId })
         const avatarId = avatarResp.data?.avatar || ''
         if (avatarId) {
-          try {
-            const defResp = await apiService.post('/Rewarding/getAvatarsByIds', { ids: [avatarId] })
-            const defs = defResp.data?.avatars || []
-            if (defs.length > 0 && defs[0].name) {
-              const avatar = enhanceAvatarWithImage(defs[0].name)
-              const url = getAvatarImage(avatar.name, 1)
-              const idx = friends.value.findIndex((x: any) => (x.username || x.id) === friendId)
-              if (idx !== -1 && friends.value && friends.value[idx]) {
-                friends.value[idx].avatar = url
+          let url = getAvatarImage(avatarId, 1)
+          if (!url) {
+            try {
+              const defResp = await apiService.post('/Rewarding/getAvatarsByIds', { ids: [avatarId] })
+              const defs = defResp.data?.avatars || []
+              if (defs.length > 0 && defs[0].name) {
+                url = getAvatarImage(defs[0].name, 1)
               }
-            }
-          } catch {}
+            } catch {}
+          }
+          const idx = friends.value.findIndex((x: any) => (x.username || x.id) === friendId)
+          if (idx !== -1 && friends.value && friends.value[idx] && url) {
+            friends.value[idx].avatar = url
+          }
         }
       } catch {}
     })

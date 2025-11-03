@@ -53,13 +53,11 @@
             @click="viewFriend(friend)"
           >
             <div class="friend-avatar">
-              <img 
-                v-if="friend.avatar"
-                :src="friend.avatar" 
-                :alt="friend.username || 'friend avatar'"
-                class="friend-avatar-img"
-              />
-              <div v-else class="friend-avatar-img friend-avatar-placeholder"></div>
+            <img 
+              :src="friend.avatar || defaultAvatar" 
+              :alt="friend.username || 'friend avatar'"
+              class="friend-avatar-img"
+            />
             </div>
             <div class="friend-info">
               <h4>{{ friend.username || 'Unknown' }}</h4>
@@ -87,7 +85,8 @@ import type { Friend } from '../types'
 import trashbinIcon from '../assets/trashbin.png'
 import clipboardIcon from '../assets/clipboard.png'
 import FriendStatsModal from '../components/FriendStatsModal.vue'
-import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
+import { getAvatarImage } from '../utils/avatarUtils'
+import defaultAvatar from '../assets/default.png'
 
 const authStore = useAuthStore()
 
@@ -199,22 +198,13 @@ const loadFriends = async () => {
         const avatarId = avatarResponse.data?.avatar || ''
         
         if (avatarId && avatarId !== '') {
-          // Get avatar definition to get the name
-          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-            ids: [avatarId]
-          })
-          const avatarDefs = defResponse.data?.avatars || []
-          if (avatarDefs.length > 0 && avatarDefs[0].name) {
-            const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
-            const avatarUrl = getAvatarImage(avatar.name, 1)
-            
-            // Update the friend's avatar in the reactive array
-            const friendToUpdate = friends.value.find(f => 
-              (f as any).id === friendId || f.username === friendId || (f as any)._id === friendId
-            )
-            if (friendToUpdate) {
-              friendToUpdate.avatar = avatarUrl
-            }
+          // Avatar IDs are seeded as the avatar names; map directly to image
+          const avatarUrl = getAvatarImage(avatarId, 1)
+          const friendToUpdate = friends.value.find(f => 
+            (f as any).id === friendId || f.username === friendId || (f as any)._id === friendId
+          )
+          if (friendToUpdate) {
+            friendToUpdate.avatar = avatarUrl
           }
         }
       } catch (error: any) {

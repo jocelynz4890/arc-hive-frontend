@@ -41,12 +41,10 @@
                     class="member-item"
                   >
                     <img 
-                      v-if="(member as any).avatar"
-                      :src="(member as any).avatar" 
+                      :src="(member as any).avatar || defaultAvatar" 
                       :alt="typeof member === 'string' ? member : (member.username || member.id || String(member))"
                       class="member-avatar"
                     />
-                    <div v-else class="member-avatar member-avatar-placeholder"></div>
                     <span class="member-name">{{ typeof member === 'string' ? member : (member.username || member.id || String(member)) }}</span>
                   </div>
                 </div>
@@ -343,16 +341,18 @@ const loadArcs = async () => {
             const avatarId = avatarResponse.data?.avatar || ''
             
             if (avatarId && avatarId !== '') {
-              // Get avatar definition to get the name
-              const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-                ids: [avatarId]
-              })
-              const avatarDefs = defResponse.data?.avatars || []
-              if (avatarDefs.length > 0 && avatarDefs[0].name) {
-                const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
-                const avatarUrl = getAvatarImage(avatar.name, 1)
-                
-                // Update the member's avatar in the reactive array
+              // Try direct map first; fallback to definition lookup if needed
+              let avatarUrl = getAvatarImage(avatarId, 1)
+              if (!avatarUrl) {
+                try {
+                  const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', { ids: [avatarId] })
+                  const avatarDefs = defResponse.data?.avatars || []
+                  if (avatarDefs.length > 0 && avatarDefs[0].name) {
+                    avatarUrl = getAvatarImage(avatarDefs[0].name, 1)
+                  }
+                } catch {}
+              }
+              if (avatarUrl) {
                 const arcToUpdate = userArcs.value.find(a => a.id === arc.id)
                 if (arcToUpdate) {
                   const memberToUpdate = arcToUpdate.members.find(m => 
@@ -409,16 +409,17 @@ const loadArcs = async () => {
             const avatarId = avatarResponse.data?.avatar || ''
             
             if (avatarId && avatarId !== '') {
-              // Get avatar definition to get the name
-              const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-                ids: [avatarId]
-              })
-              const avatarDefs = defResponse.data?.avatars || []
-              if (avatarDefs.length > 0 && avatarDefs[0].name) {
-                const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
-                const avatarUrl = getAvatarImage(avatar.name, 1)
-                
-                // Update the member's avatar in the reactive array
+              let avatarUrl = getAvatarImage(avatarId, 1)
+              if (!avatarUrl) {
+                try {
+                  const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', { ids: [avatarId] })
+                  const avatarDefs = defResponse.data?.avatars || []
+                  if (avatarDefs.length > 0 && avatarDefs[0].name) {
+                    avatarUrl = getAvatarImage(avatarDefs[0].name, 1)
+                  }
+                } catch {}
+              }
+              if (avatarUrl) {
                 const arcToUpdate = userArcs.value.find(a => a.id === arc.id)
                 if (arcToUpdate) {
                   const memberToUpdate = arcToUpdate.members.find(m => 
