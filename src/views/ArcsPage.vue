@@ -1102,8 +1102,7 @@ watch(user, (u) => {
 
 .arc-members {
   margin-bottom: 0;
-  padding-bottom: 1rem;
-  border-bottom: 3px solid #cdb4db;
+  padding-bottom: 2rem;
 }
 
 .arc-members h4 {
@@ -1146,8 +1145,7 @@ watch(user, (u) => {
 
 .progress-section {
   margin-bottom: 0;
-  padding-bottom: 1rem;
-  border-bottom: 3px solid #cdb4db;
+  padding-bottom: 2rem;
 }
 
 .progress-section h4 {
