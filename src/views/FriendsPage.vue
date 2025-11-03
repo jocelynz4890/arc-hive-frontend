@@ -198,13 +198,22 @@ const loadFriends = async () => {
         const avatarId = avatarResponse.data?.avatar || ''
         
         if (avatarId && avatarId !== '') {
-          // Avatar IDs are seeded as the avatar names; map directly to image
-          const avatarUrl = getAvatarImage(avatarId, 1)
-          const friendToUpdate = friends.value.find(f => 
-            (f as any).id === friendId || f.username === friendId || (f as any)._id === friendId
-          )
-          if (friendToUpdate) {
-            friendToUpdate.avatar = avatarUrl
+          // Get avatar definition to get the name
+          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+            ids: [avatarId]
+          })
+          const avatarDefs = defResponse.data?.avatars || []
+          if (avatarDefs.length > 0 && avatarDefs[0].name) {
+            const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+            const avatarUrl = getAvatarImage(avatar.name, 1)
+            
+            // Update the friend's avatar in the reactive array
+            const friendToUpdate = friends.value.find(f => 
+              (f as any).id === friendId || f.username === friendId || (f as any)._id === friendId
+            )
+            if (friendToUpdate) {
+              friendToUpdate.avatar = avatarUrl
+            }
           }
         }
       } catch (error: any) {
