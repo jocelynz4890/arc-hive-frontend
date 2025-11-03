@@ -56,6 +56,10 @@ This concept remained relatively the same. I added 'removeFriend' and also chang
 
 In order to refresh my app daily at midnight, I had to create a new concept that had no state and contained one action, a trigger that took a secret (for security, so that it cannot be called by anything other than a cron job that schedules when this trigger is called) and will set off a chain of actions across concepts that should execute one by one through chained syncs, since some of their inputs depend on previous actions’ outputs.
 
+### Events Concept
+
+I found that after the chain of sync actions triggered by the DailyRefresh concept occurred, the UI could not refresh automatically, so I added the Events concept only contains a single action, emit, to force a refresh on the frontend after the daily refresh event sequence occurs. This is used along with updating the Request concept to create an endpoint for server sent events. I use polling in addition to this as a fallback.
+
 ### Syncs and Security Considerations
 
 I started with a sync for the daily refresh, which should allow the user to earn rewards points, reset streaks for their arcs, and update their stats (actions across 3 concepts). In addition, the number of points, streak continuation/reset, and stat gains/losses depend on the information of whether a user made arc progress individually and with the rest of the arc members, so an additional action is required to convey that information as input to the other actions.
