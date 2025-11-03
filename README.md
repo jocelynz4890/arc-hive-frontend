@@ -33,3 +33,4 @@ Developer note: when new avatars are added, run `deno run --allow-net --allow-re
 
 - Reflection.md
 - Design.md
+- Visual Design Studies: Color.png and Typography.png

@@ -85,7 +85,7 @@ import type { Friend } from '../types'
 import trashbinIcon from '../assets/trashbin.png'
 import clipboardIcon from '../assets/clipboard.png'
 import FriendStatsModal from '../components/FriendStatsModal.vue'
-import { getAvatarImage } from '../utils/avatarUtils'
+import { getAvatarImage, enhanceAvatarWithImage } from '../utils/avatarUtils'
 import defaultAvatar from '../assets/default.png'
 
 const authStore = useAuthStore()
