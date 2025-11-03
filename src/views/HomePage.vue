@@ -688,6 +688,10 @@ watch(user, (u) => { if (u) loadUserData() })
     padding: 1rem;
   }
   
+  .avatar-container {
+    gap: 1.5rem;
+  }
+  
   .animated-avatar {
     width: 200px;
     height: 200px;
@@ -698,8 +702,22 @@ watch(user, (u) => { if (u) loadUserData() })
     height: 200px;
   }
   
+  .avatar-info {
+    margin-top: 0.5rem;
+  }
+  
+  .avatar-info h3 {
+    font-size: 1.1em;
+    margin-bottom: 0.25rem;
+  }
+  
+  .rarity {
+    font-size: 0.8rem;
+  }
+  
   .stats-container {
     min-height: 600px;
+    padding: 1rem;
   }
   
   .section-header h2 {

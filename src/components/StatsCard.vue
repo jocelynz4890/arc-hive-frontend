@@ -195,9 +195,54 @@ const getProgressPercentage = (stat: string) => {
   transform: rotateY(180deg) scale(1.02);
 }
 
+@media (max-width: 768px) {
+  .stats-card {
+    height: 550px;
+  }
+  
+  .card-front, .card-back {
+    padding: 1rem;
+  }
+  
+  .card-front h3, .card-back h3 {
+    font-size: 1.2em;
+    margin-bottom: 0.75rem;
+  }
+  
+  .radar-chart {
+    width: 100% !important;
+    max-width: 350px !important;
+    margin: 0 auto;
+  }
+  
+  .progress-item {
+    margin-bottom: 0.75rem;
+  }
+  
+  .stat-label {
+    font-size: 0.85rem;
+  }
+  
+  .progress-text {
+    font-size: 0.85rem;
+  }
+  
+  .flip-hint {
+    font-size: 0.85rem;
+  }
+}
+
 @media (max-width: 480px) {
   .stats-card {
-    height: auto;
+    height: 500px;
+  }
+  
+  .card-front h3, .card-back h3 {
+    font-size: 1.1em;
+  }
+  
+  .radar-chart {
+    max-width: 280px !important;
   }
 }
 </style>
