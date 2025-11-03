@@ -21,7 +21,7 @@
                 @load="avatarLoaded = true"
               />
               <img 
-                v-show="!avatarLoaded"
+                v-if="!currentAvatarFrame1 && !currentAvatarFrame2"
                 :src="defaultAvatar" 
                 alt="Default Avatar"
                 class="avatar-frame default-avatar"
@@ -89,10 +89,12 @@
               >
                 <div class="friend-avatar">
                   <img 
-                    :src="friend.avatar || defaultAvatar" 
+                    v-if="friend.avatar"
+                    :src="friend.avatar" 
                     :alt="friend.username"
                     class="friend-avatar-img"
                   />
+                  <div v-else class="friend-avatar-img friend-avatar-placeholder"></div>
                 </div>
                 <div class="friend-info">
                   <h4>{{ friend.username }}</h4>
@@ -113,7 +115,7 @@
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { apiService } from '../services/api'
+import { apiService, subscribeToEvents } from '../services/api'
 import StatsCard from '../components/StatsCard.vue'
 import FriendStatsModal from '../components/FriendStatsModal.vue'
 import type { StatData, Arc, Friend, Avatar } from '../types'
@@ -149,20 +151,24 @@ const currentAvatarFrame2 = computed(() =>
   currentAvatar.value?.name ? getAvatarImage(currentAvatar.value.name, 2) : null
 )
 
-// Preload avatar from cache/localStorage if available (user-specific)
-onMounted(() => {
-  const userId = user.value?.id || user.value?.username || String(user.value)
-  const cachedAvatarName = localStorage.getItem(`currentAvatarName_${userId}`)
-  if (cachedAvatarName && userId) {
-    try {
-      const cached = enhanceAvatarWithImage(cachedAvatarName)
-      currentAvatar.value = cached
-      avatarLoaded.value = true
-    } catch (e) {
-      console.warn('Could not load cached avatar:', e)
+// Synchronously preload avatar from cache/localStorage (before mount) to avoid flicker
+try {
+  const storedUser = localStorage.getItem('user')
+  if (storedUser) {
+    const parsed = JSON.parse(storedUser)
+    const cacheKey = (parsed?.id || parsed?.username || String(parsed))
+    if (cacheKey) {
+      const cachedAvatarName = localStorage.getItem(`currentAvatarName_${cacheKey}`)
+      if (cachedAvatarName) {
+        const cached = enhanceAvatarWithImage(cachedAvatarName)
+        currentAvatar.value = cached
+        avatarLoaded.value = true
+      }
     }
   }
-})
+} catch (e) {
+  // ignore
+}
 
 const userArcs = ref<Arc[]>([])
 const friends = ref<Friend[]>([])
@@ -171,28 +177,18 @@ const friends = ref<Friend[]>([])
 const user = computed(() => authStore.user)
 
 // Methods
-const goToArcs = () => {
-  router.push('/arcs')
-}
-
-const goToFriends = () => {
-  router.push('/friends')
-}
+const goToArcs = () => { router.push('/arcs') }
+const goToFriends = () => { router.push('/friends') }
 
 import { ref as vueRef } from 'vue'
-
 const selectedFriend = vueRef<Friend | null>(null)
-
-// defaultStats removed — friend modal uses its own normalization and current user stats are in totalStats/completedStats
 
 const viewFriend = async (friend: any) => {
   // Normalize and copy friend
   selectedFriend.value = { ...(typeof friend === 'string' ? { username: friend } : friend) }
-
   const userIdString = (typeof friend === 'string')
     ? friend
     : (friend.id ?? friend._id ?? friend.username ?? String(friend))
-
   try {
     const statsResponse = await apiService.post('/StatTracking/getStats', { user: userIdString })
     const stats = statsResponse.data?.stats ?? statsResponse.data
@@ -201,9 +197,6 @@ const viewFriend = async (friend: any) => {
       selectedFriend.value.totalStats = t as any
       selectedFriend.value.completedStats = c as any
     }
-
-    // Username should already be available from listFriends
-    // If missing, it's already the userIdString, so use that
     if (selectedFriend.value && !selectedFriend.value.username) {
       selectedFriend.value.username = userIdString
     }
@@ -212,11 +205,9 @@ const viewFriend = async (friend: any) => {
   }
 }
 
-const closeFriendModal = () => {
-  selectedFriend.value = null
-}
+const closeFriendModal = () => { selectedFriend.value = null }
 
-// Normalize backend stats into frontend-friendly shapes (strip _id/user and compute totals)
+// Normalize backend stats
 const normalizeStatsShape = (raw: any) => {
   const keys: Array<[string, string]> = [
     ['hp', 'HP'],
@@ -225,10 +216,8 @@ const normalizeStatsShape = (raw: any) => {
     ['agility', 'Agility'],
     ['intelligence', 'Intelligence']
   ]
-
   const totalStats: any = {}
   const completedStats: any = {}
-
   for (const [low, out] of keys) {
     const entry = raw[low] ?? raw[out]
     if (entry && typeof entry === 'object') {
@@ -244,42 +233,30 @@ const normalizeStatsShape = (raw: any) => {
       completedStats[out] = 0
     }
   }
-
   return { totalStats, completedStats }
 }
 
 const loadUserData = async () => {
   if (!user.value) return
-  
   try {
-    // Backend expects user as a string identifier, extract it
-    const userId = typeof user.value === 'string' 
-      ? user.value 
-      : (user.value as any).username || (user.value as any).id || String(user.value)
-    
-    // Load stats
-    const statsResponse = await apiService.post('/StatTracking/getStats', {
-      user: userId
-    })
-    
-    // Handle different response structures
+    // Use username for stats (StatTracking is keyed by username via init and daily updates)
+    const statsUserId = typeof user.value === 'string'
+      ? user.value
+      : ((user.value as any).username || (user.value as any).id || String(user.value))
+
+    const statsResponse = await apiService.post('/StatTracking/getStats', { user: statsUserId })
     const statsData = statsResponse.data?.stats || statsResponse.data
-    
     if (statsData) {
-      // Backend automatically initializes stats on registration, so just normalize data
       const normalized = normalizeStatsShape(statsData)
       totalStats.value = normalized.totalStats
       completedStats.value = normalized.completedStats
     }
-    
-    // Load arcs - backend returns { arcs: [id1, id2, ...] }, fetch full details
-    const arcsResponse = await apiService.post('/ArcTracking/getArcs', {
-      user: userId
-    })
+
+    // ArcTracking stores members as usernames; query with username for arcs
+    const arcsUser = statsUserId
+    const arcsResponse = await apiService.post('/ArcTracking/getArcs', { user: arcsUser })
     const arcsData = arcsResponse.data
-    
     if (Array.isArray(arcsData)) {
-      // If it's an array, fetch full details for each arc
       const fullArcs = await Promise.all(
         arcsData.map(async (arc: any) => {
           try {
@@ -299,7 +276,6 @@ const loadUserData = async () => {
         members: Array.isArray(arc.members) ? arc.members : []
       }))
     } else if (arcsData && Array.isArray(arcsData.arcs)) {
-      // Backend returns { arcs: [id1, id2, ...] }, fetch full details for each arc ID
       const fullArcs = await Promise.all(
         arcsData.arcs.map(async (arcId: string) => {
           try {
@@ -314,14 +290,7 @@ const loadUserData = async () => {
             }
           } catch (error) {
             console.error(`Error fetching arc ${arcId}:`, error)
-            // Return a minimal placeholder
-            return {
-              id: arcId,
-              name: arcId,
-              stat: '',
-              streak: 0,
-              members: []
-            }
+            return { id: arcId, name: arcId, stat: '', streak: 0, members: [] }
           }
         })
       )
@@ -329,54 +298,26 @@ const loadUserData = async () => {
     } else {
       userArcs.value = []
     }
-    
-    // Load friends (normalize different response shapes)
-    await loadFriendsOnly()
-    
-    // Load current avatar from backend (not just first avatar)
+
+    // Refresh current avatar from backend so Home mirrors Rewards selection
     try {
-      const currentResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
-        user: userId
-      })
-      const currentAvatarId = currentResponse.data?.avatar || ''
-      
-      if (currentAvatarId && currentAvatarId !== '') {
-        // Get avatar definition to get the name
-        const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-          ids: [currentAvatarId]
-        })
-        const avatarDefs = defResponse.data?.avatars || []
-        if (avatarDefs.length > 0 && avatarDefs[0].name) {
-          const enhanced = enhanceAvatarWithImage(avatarDefs[0].name)
-          console.log('HomePage: Loaded current avatar from backend:', enhanced.name)
-          currentAvatar.value = enhanced
-          // Cache the avatar name for faster loading next time (user-specific)
-          localStorage.setItem(`currentAvatarName_${userId}`, avatarDefs[0].name)
-        } else {
-          throw new Error('Avatar definition not found')
-        }
-      } else {
-        // No current avatar set - show default avatar for new users
-        console.log('HomePage: No current avatar set, showing default avatar')
-        currentAvatar.value = null
-        avatarLoaded.value = false
-        // Clear any cached avatar for this user
-        localStorage.removeItem(`currentAvatarName_${userId}`)
+      const currentResp = await apiService.post('/Rewarding/getCurrentAvatar', { user: statsUserId })
+      const currentId = currentResp.data?.avatar || ''
+      if (currentId && currentId !== '') {
+        try {
+          const defResp = await apiService.post('/Rewarding/getAvatarsByIds', { ids: [currentId] })
+          const defs = defResp.data?.avatars || []
+          if (defs.length > 0 && defs[0].name) {
+            const enhanced = enhanceAvatarWithImage(defs[0].name)
+            currentAvatar.value = enhanced
+            const userId = statsUserId
+            if (userId) localStorage.setItem(`currentAvatarName_${userId}`, enhanced.name)
+          }
+        } catch {}
       }
-    } catch (error: any) {
-      console.warn('HomePage: Could not load current avatar:', error.message || error)
-      // No avatar available - show default
-      currentAvatar.value = null
-      avatarLoaded.value = false
-      // Clear any cached avatar for this user
-      localStorage.removeItem(`currentAvatarName_${userId}`)
-    }
-    
-    // Mark avatar as loaded once we have set it
-    if (currentAvatar.value) {
-      avatarLoaded.value = true
-    }
-    
+    } catch {}
+
+    await loadFriendsOnly()
   } catch (error) {
     console.error('Error loading user data:', error)
   }
@@ -385,102 +326,47 @@ const loadUserData = async () => {
 const loadFriendsOnly = async () => {
   if (!user.value) return
   try {
-    // Extract username string for backend - Friending expects username string, not object
     const username = typeof user.value === 'string' 
       ? user.value
       : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
-    
-    const friendsResponse = await apiService.post('/Friending/listFriends', {
-      user: username
-    })
+    const friendsResponse = await apiService.post('/Friending/listFriends', { user: username })
     const data = friendsResponse.data
-    let friendList: Friend[] = []
-    if (Array.isArray(data)) {
-      friendList = data
-    } else if (data && Array.isArray(data.friends)) {
-      friendList = data.friends
-    } else if (data && Array.isArray(data.users)) {
-      friendList = data.users
-    } else {
-      friendList = []
-    }
-    
-    // Deduplicate friends by ID/username before processing
-    const seen = new Set<string>()
-    friendList = friendList.filter((friend: any) => {
-      const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
-      if (seen.has(friendId)) {
-        return false
-      }
-      seen.add(friendId)
-      return true
+    let friendList: any[] = []
+    if (Array.isArray(data)) friendList = data
+    else if (data && Array.isArray(data.friends)) friendList = data.friends
+    else if (data && Array.isArray(data.users)) friendList = data.users
+    else friendList = []
+
+    // Normalize to ensure each friend has a username field for display
+    // Do NOT assign default avatar here to avoid a flash; leave empty until loaded
+    friends.value = friendList.map((f: any) => {
+      if (typeof f === 'string') return { username: f, id: f, avatar: '' }
+      const username = f.username || f.id || f._id || String(f)
+      return { username, id: f.id || f._id || username, avatar: '' }
     })
-    
-    // First, normalize all friends and show them with default avatars immediately
-    const normalizedFriends = friendList.map((friend: any) => {
-      // Extract friend ID - backend returns user IDs (which are usernames in this system)
-      const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
-      
-      // Normalize friend object to ensure it has username
-      const normalizedFriend: Friend = typeof friend === 'string' 
-        ? { username: friend, id: friend }
-        : {
-            username: friend.username || friend.id || friend._id || friendId || String(friend),
-            id: friend.id || friend._id || friendId,
-            ...friend
-          }
-      
-      return {
-        ...normalizedFriend,
-        avatar: defaultAvatar
-      }
-    })
-    
-    // Create a new array reference to ensure Vue reactivity and deduplicate again (in case normalization created duplicates)
-    const uniqueFriends = new Map<string, Friend>()
-    normalizedFriends.forEach((friend: Friend) => {
-      const friendId = (friend as any).id || friend.username || (friend as any)._id || String(friend)
-      if (!uniqueFriends.has(friendId)) {
-        uniqueFriends.set(friendId, friend)
-      }
-    })
-    
-    // Show friends immediately with default avatars
-    friends.value = [...uniqueFriends.values()]
-    
-    // Then load avatars in the background without blocking the UI
-    friendList.forEach(async (friend: any) => {
-      const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
-      
+
+    // Load each friend's current avatar in the background
+    friends.value.forEach(async (fr: any) => {
+      const friendId = fr.username || fr.id
+      if (!friendId) return
       try {
-        // Get friend's current avatar
-        const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
-          user: friendId
-        })
-        const avatarId = avatarResponse.data?.avatar || ''
-        
-        if (avatarId && avatarId !== '') {
-          // Get avatar definition to get the name
-          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-            ids: [avatarId]
-          })
-          const avatarDefs = defResponse.data?.avatars || []
-          if (avatarDefs.length > 0 && avatarDefs[0].name) {
-            const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
-            const avatarUrl = getAvatarImage(avatar.name, 1)
-            
-            // Update the friend's avatar in the reactive array
-            const friendToUpdate = friends.value.find(f => 
-              (f as any).id === friendId || f.username === friendId || (f as any)._id === friendId
-            )
-            if (friendToUpdate) {
-              friendToUpdate.avatar = avatarUrl
+        const avatarResp = await apiService.post('/Rewarding/getCurrentAvatar', { user: friendId })
+        const avatarId = avatarResp.data?.avatar || ''
+        if (avatarId) {
+          try {
+            const defResp = await apiService.post('/Rewarding/getAvatarsByIds', { ids: [avatarId] })
+            const defs = defResp.data?.avatars || []
+            if (defs.length > 0 && defs[0].name) {
+              const avatar = enhanceAvatarWithImage(defs[0].name)
+              const url = getAvatarImage(avatar.name, 1)
+              const idx = friends.value.findIndex((x: any) => (x.username || x.id) === friendId)
+              if (idx !== -1 && friends.value && friends.value[idx]) {
+                friends.value[idx].avatar = url
+              }
             }
-          }
+          } catch {}
         }
-      } catch (error: any) {
-        console.warn(`Could not load avatar for friend ${friendId}:`, error.message || error)
-      }
+      } catch {}
     })
   } catch (err) {
     console.error('Error loading friends (preview):', err)
@@ -488,41 +374,57 @@ const loadFriendsOnly = async () => {
   }
 }
 
+let unsubscribeEvents: (() => void) | null = null
 onMounted(() => {
   loadUserData()
-  
-  // Listen for avatar changes from other pages
-  const onAvatarChanged = (event: CustomEvent) => {
-    console.log('HomePage: Avatar changed event received:', event.detail)
-    if (event.detail?.avatar) {
-      const userId = user.value?.id || user.value?.username || String(user.value)
-      currentAvatar.value = event.detail.avatar
-      // Cache the new avatar name (user-specific)
-      if (event.detail.avatar.name && userId) {
-        localStorage.setItem(`currentAvatarName_${userId}`, event.detail.avatar.name)
+  // Subscribe to backend SSE to refresh when daily refresh completes
+  unsubscribeEvents = subscribeToEvents(async (e) => {
+    if (e.type === 'daily-refresh-complete') {
+      await loadUserData()
+      if (selectedFriend.value) {
+        const id = selectedFriend.value.username || (selectedFriend.value as any).id
+        if (id) {
+          try {
+            const statsResponse = await apiService.post('/StatTracking/getStats', { user: id })
+            const stats = statsResponse.data?.stats ?? statsResponse.data
+            if (stats) {
+              const { totalStats: t, completedStats: c } = normalizeStatsShape(stats)
+              selectedFriend.value.totalStats = t as any
+              selectedFriend.value.completedStats = c as any
+            }
+          } catch {}
+        }
       }
-      avatarLoaded.value = true
+    }
+  })
+  // Listen for local avatar changes from Rewards page
+  const onAvatarChanged = (e: Event) => {
+    const detail = (e as CustomEvent).detail
+    if (detail && detail.avatar && detail.avatar.name) {
+      currentAvatar.value = detail.avatar
+      const userId = user.value?.id || (user.value as any)?.username || String(user.value)
+      if (userId) {
+        localStorage.setItem(`currentAvatarName_${userId}`, detail.avatar.name)
+      }
+      // Update current user's entry in friends preview if present
+      const me = (user.value as any)?.username || (user.value as any)?.id || String(user.value)
+      const idx = friends.value.findIndex((f: any) => (f.username || f.id) === me)
+      if (idx !== -1 && friends.value && friends.value[idx]) {
+        friends.value[idx].avatar = getAvatarImage(detail.avatar.name, 1)
+      }
     }
   }
   window.addEventListener('avatar-changed', onAvatarChanged as EventListener)
-  
-  // Resync when friends change elsewhere in the app
-  const onFriendsUpdated = () => {
-    loadFriendsOnly()
-  }
-  window.addEventListener('friends-updated', onFriendsUpdated)
-
-  // Clean up listeners when component unmounts
+  // Remove on unmount
   onUnmounted(() => {
     window.removeEventListener('avatar-changed', onAvatarChanged as EventListener)
-    window.removeEventListener('friends-updated', onFriendsUpdated)
   })
 })
 
+onUnmounted(() => { if (unsubscribeEvents) unsubscribeEvents() })
+
 // If auth store initializes later, reload data
-watch(user, (u) => {
-  if (u) loadUserData()
-})
+watch(user, (u) => { if (u) loadUserData() })
 </script>
 
 <style scoped>

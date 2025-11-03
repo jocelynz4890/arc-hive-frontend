@@ -1,5 +1,8 @@
 # ArcHive
 
+Frontend deployment link: https://arc-hive.onrender.com
+Backend deployment link: https://arc-hive-backend.onrender.com
+
 Use `npm run dev` to run the frontend. `deno run start` to run the backend.
 
 ## User Journey
@@ -10,14 +13,23 @@ The user Alex, a busy college student, struggled to maintain healthy routines li
 
 All located at the top level of this repository.
 
+1. Check-In_Recording.mov
+2. FinalRecording1.mov and FinalRecording2.mov
+3. A4C_Final_Recording.mov
+
 ## Testing
 
-Force a refresh for testing with: POST http://localhost:8000/api/DailyRefresh/trigger with an empty body.
+Force a refresh for testing with:
+
+```
+curl -X POST http://localhost:8000/api/DailyRefresh/trigger \
+       -H "Content-Type: application/json" \
+       -d '{"secret":"<INSERT_SECRET_HERE>"}'
+```
 
 Developer note: when new avatars are added, run `deno run --allow-net --allow-read --allow-env scripts/seedAvatars.ts` in the backend directory to define avatars.
 
-## Relevant Files
+## Other Relevant Files (at the top level of this repository)
 
-1. Check-In_Recording.mov
-2. FinalRecording1.mov and FinalRecording2.mov
-3. Reflection.md and Design.md, A4C_Final_Recording.mov
+- Reflection.md
+- Design.md

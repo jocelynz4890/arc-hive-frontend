@@ -41,10 +41,12 @@
                     class="member-item"
                   >
                     <img 
-                      :src="(member as Friend).avatar || defaultAvatar" 
+                      v-if="(member as any).avatar"
+                      :src="(member as any).avatar" 
                       :alt="typeof member === 'string' ? member : (member.username || member.id || String(member))"
                       class="member-avatar"
                     />
+                    <div v-else class="member-avatar member-avatar-placeholder"></div>
                     <span class="member-name">{{ typeof member === 'string' ? member : (member.username || member.id || String(member)) }}</span>
                   </div>
                 </div>
@@ -249,9 +251,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { apiService } from '../services/api'
+import { apiService, subscribeToEvents } from '../services/api'
 import type { Arc, Friend, User } from '../types'
 import defaultAvatar from '../assets/default.png'
 import pencilIcon from '../assets/pencil.png'
@@ -272,6 +274,7 @@ const currentPage = ref(1)
 const itemsPerPage = 10
 const editingArc = ref<Arc | null>(null)
 const editingArcMembers = ref<Friend[]>([])
+let unsubscribeEvents: (() => void) | null = null
 
 const newArc = ref({
   name: '',
@@ -324,17 +327,8 @@ const loadArcs = async () => {
           return normalizeArc(arcDetails.data?.arc || arcDetails.data || arc)
         })
       )
-      // Set default avatars for all members immediately
-      const arcsWithDefaultAvatars = fullArcs.map((arc: any) => ({
-        ...arc,
-        members: arc.members.map((member: any) => ({
-          ...member,
-          avatar: member.avatar || defaultAvatar
-        }))
-      }))
-      
-      // Show arcs immediately with default avatars
-      userArcs.value = [...arcsWithDefaultAvatars]
+      // Show arcs immediately without forcing default avatars to avoid flicker
+      userArcs.value = [...fullArcs]
       
       // Load real avatars in the background without blocking
       fullArcs.forEach(async (arc: any) => {
@@ -399,17 +393,8 @@ const loadArcs = async () => {
       // Filter out any null results from failed fetches
       const validArcs = fullArcs.filter((arc: any) => arc !== null)
       
-      // Set default avatars for all members immediately
-      const arcsWithDefaultAvatars = validArcs.map((arc: any) => ({
-        ...arc,
-        members: arc.members.map((member: any) => ({
-          ...member,
-          avatar: member.avatar || defaultAvatar
-        }))
-      }))
-      
-      // Show arcs immediately with default avatars
-      userArcs.value = [...arcsWithDefaultAvatars]
+      // Show arcs immediately without forcing default avatars to avoid flicker
+      userArcs.value = [...validArcs]
       
       // Load real avatars in the background without blocking
       validArcs.forEach(async (arc: any) => {
@@ -866,6 +851,14 @@ onMounted(() => {
   
   console.log('ArcsPage mounted, user:', user.value)
   
+  // Subscribe to SSE to refresh when backend completes daily refresh
+  unsubscribeEvents = subscribeToEvents(async (e) => {
+    if (e.type === 'daily-refresh-complete') {
+      await loadArcs()
+      await loadFriends()
+    }
+  })
+  
   // Wait a bit for auth to settle
   setTimeout(() => {
     if (user.value) {
@@ -873,6 +866,35 @@ onMounted(() => {
       loadFriends()
     }
   }, 100)
+
+  // Also update member avatars immediately when current user changes their avatar
+  const onAvatarChanged = (e: Event) => {
+    const detail = (e as CustomEvent).detail
+    if (!detail || !detail.avatar || !detail.avatar.name) return
+    const currentUsername = typeof user.value === 'string'
+      ? user.value
+      : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
+    // Update any member entries matching the current user
+    userArcs.value = userArcs.value.map((arc) => {
+      const updated = { ...arc }
+      updated.members = arc.members.map((m: any) => {
+        const name = typeof m === 'string' ? m : (m.username || m.id || String(m))
+        if (name === currentUsername) {
+          return { ...(typeof m === 'string' ? { username: m } : m), avatar: getAvatarImage(detail.avatar.name, 1) }
+        }
+        return m
+      })
+      return updated as any
+    })
+  }
+  window.addEventListener('avatar-changed', onAvatarChanged as EventListener)
+  onBeforeUnmount(() => {
+    window.removeEventListener('avatar-changed', onAvatarChanged as EventListener)
+  })
+})
+
+onBeforeUnmount(() => {
+  if (unsubscribeEvents) unsubscribeEvents()
 })
 
 // If the auth store initializes after mount, reload data when user becomes available

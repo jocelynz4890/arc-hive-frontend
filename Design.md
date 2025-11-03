@@ -56,6 +56,38 @@ This concept remained relatively the same. I added 'removeFriend' and also chang
 
 In order to refresh my app daily at midnight, I had to create a new concept that had no state and contained one action, a trigger that took a secret (for security, so that it cannot be called by anything other than a cron job that schedules when this trigger is called) and will set off a chain of actions across concepts that should execute one by one through chained syncs, since some of their inputs depend on previous actions’ outputs.
 
+### Events Concept
+
+I found that after the chain of sync actions triggered by the DailyRefresh concept occurred, the UI could not refresh automatically, so the events concept only contains a single action, emit, to force a refresh on the frontend after the daily refresh event sequence occurs. This is used along with updating the Request concept to create an endpoint for server sent events.
+
+### Syncs and Security Considerations
+
+I started with a sync for the daily refresh, which should allow the user to earn rewards points, reset streaks for their arcs, and update their stats (actions across 3 concepts). In addition, the number of points, streak continuation/reset, and stat gains/losses depend on the information of whether a user made arc progress individually and with the rest of the arc members, so an additional action is required to convey that information as input to the other actions.
+
+Next, I added a sync to initialize the user's data when they are initially registered.
+
+All routes used by the syncs were excluded in `passthrough.ts`.
+
+All actions that involved writing to the database, or that could've revealed sensitive user information, such as being able to retrieve a friend code from just a user ID, were excluded in `passthrough.ts` so that they would not be public endpoints.
+
+All queries are excluded as well, since they directly interface with the database and should not be exposed.
+
+The syncs use session tokens to ensure the user is authenticated.
+
+### Deployment
+
+#### Static Site
+
+I set up a static site for my frontend. Link here: https://arc-hive.onrender.com
+
+#### Web Service
+
+I set up a web service for my backend. Link here: https://arc-hive-backend.onrender.com
+
+#### Cron Job
+
+I used https://console.cron-job.org/jobs to create a cron job to POST at the URL https://arc-hive-backend.onrender.com/api/DailyRefresh/trigger, with the crobtab expression `0 0 * * *` so that it runs daily at midnight, and a request body with {"secret":"<YOUR_DAILY_REFRESH_SECRET>"}. The issue here is that there is a timeout of 30s, which might not be long enough to do a full refresh for all users, but the daily refresh endpoint returns immediately after verifying the secret, and all the heavy work is done in the later syncs it triggers, but this means that if processing fails, it won't be reflected in the HTTP response, and logs will be required to detect failures.
+
 ## Frontend Changes
 
 Most of the frontend changes that differ from the original design were made in response to visual design choices (color and typography) that impacted readability/navigability in unexpected ways after the visual changes were made.
@@ -73,3 +105,4 @@ From my visual design study, I chose a color palette that was playful, fun, and 
 - Validation was performed in places where forms had to be submitted: login/signup, entering friend codes, spending points, creating arcs. These display detailed messages of what error occurred, e.g. “You cannot enter your own friend code”, “You have already friended this user”, “This username does not exist”, “You cannot have whitespaces in your username”, “You must name your arc”, “You don’t have enough points to spend”, and more.
 - The friend code can be easily copied to the clipboard by clicking an icon next to the friend code, which displays a message briefly to let the user know that the code has been copied. Similar indicators exist for point spending on the rewards page.
 - Brief messages are present at the top of every page and in areas where a user needs more information that may not be obvious from just viewing the app, to guide the user more effectively.
+- To handle different screen sizes (for example, when being viewed on mobile), I ensured the navbar and all other UI components had flexbox properties configured and also handled cases where a long input text field may overflow from the container that it is located within.

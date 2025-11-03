@@ -184,9 +184,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { apiService } from '../services/api'
+import { apiService, subscribeToEvents } from '../services/api'
 import type { Avatar, StatData } from '../types'
 import defaultAvatar from '../assets/default.png'
 import diceIcon from '../assets/dice.png'
@@ -196,6 +196,7 @@ import lockIcon from '../assets/lock.png'
 import { enhanceAvatarWithImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
+let unsubscribeEvents: (() => void) | null = null
 
 // Data
 const userPoints = ref(0)
@@ -669,6 +670,16 @@ const closeGachaModal = () => {
 
 onMounted(() => {
   loadRewards()
+  // Subscribe to backend SSE to refresh when daily refresh completes
+  unsubscribeEvents = subscribeToEvents(async (e) => {
+    if (e.type === 'daily-refresh-complete') {
+      await loadRewards()
+    }
+  })
+})
+
+onBeforeUnmount(() => {
+  if (unsubscribeEvents) unsubscribeEvents()
 })
 </script>
 

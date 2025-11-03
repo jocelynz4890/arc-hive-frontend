@@ -40,3 +40,20 @@ apiService.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+// --- SSE client for server-sent events ---
+export function subscribeToEvents(onMessage: (event: MessageEvent<any>) => void): () => void {
+  const base = API_BASE === '/api' ? '' : API_BASE
+  const url = `${base}/api/events` // backend exposes /api/events
+  const es = new EventSource(url)
+  const handler = (e: MessageEvent) => onMessage(e)
+  es.addEventListener('daily-refresh-complete', handler as EventListener)
+  // generic messages (optional)
+  es.onmessage = handler
+  es.onerror = () => {
+    // Let browser auto-reconnect based on retry sent by server.
+  }
+  return () => {
+    try { es.close() } catch {}
+  }
+}

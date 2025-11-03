@@ -54,10 +54,12 @@
           >
             <div class="friend-avatar">
               <img 
-                :src="friend.avatar || defaultAvatar" 
+                v-if="friend.avatar"
+                :src="friend.avatar" 
                 :alt="friend.username || 'friend avatar'"
                 class="friend-avatar-img"
               />
+              <div v-else class="friend-avatar-img friend-avatar-placeholder"></div>
             </div>
             <div class="friend-info">
               <h4>{{ friend.username || 'Unknown' }}</h4>
@@ -78,11 +80,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Friend } from '../types'
-import defaultAvatar from '../assets/default.png'
 import trashbinIcon from '../assets/trashbin.png'
 import clipboardIcon from '../assets/clipboard.png'
 import FriendStatsModal from '../components/FriendStatsModal.vue'
@@ -149,7 +150,7 @@ const loadFriends = async () => {
       return true
     })
     
-    // First, normalize all friends and show them with default avatars immediately
+    // First, normalize all friends without forcing default avatars to avoid flicker
     const normalizedFriends = friendList.map((friend: any) => {
       // Extract friend ID - backend returns user IDs (which are usernames in this system)
       const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
@@ -170,7 +171,7 @@ const loadFriends = async () => {
       
       return {
         ...normalizedFriend,
-        avatar: defaultAvatar
+        avatar: ''
       }
     })
     
@@ -476,6 +477,26 @@ onMounted(() => {
       loadFriends()
       loadFriendCode()
     }
+  })
+
+  // If the current user changes their avatar, update their entry in the friends list if present
+  const onAvatarChanged = (e: Event) => {
+    const detail = (e as CustomEvent).detail
+    if (!detail || !detail.avatar || !detail.avatar.name) return
+    const currentUsername = typeof user.value === 'string'
+      ? user.value
+      : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
+    friends.value = friends.value.map((f) => {
+      const name = f.username || (f as any).id || String(f)
+      if (name === currentUsername) {
+        return { ...f, avatar: getAvatarImage(detail.avatar.name, 1) }
+      }
+      return f
+    })
+  }
+  window.addEventListener('avatar-changed', onAvatarChanged as EventListener)
+  onBeforeUnmount(() => {
+    window.removeEventListener('avatar-changed', onAvatarChanged as EventListener)
   })
 })
 </script>
