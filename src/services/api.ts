@@ -1,15 +1,16 @@
 import axios from 'axios'
 
-// Use a relative base URL in development so Vite's dev-server proxy can forward requests
-// to the actual backend. This avoids CORS issues in the browser during local development.
+const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+
+// Create axios with a base URL that respects deployment configuration.
+// In development, Vite proxy can map '/api' → backend; in production on Render,
+// set VITE_API_BASE to 'https://<backend>.onrender.com' so requests hit the backend origin.
 export const apiService = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
   headers: {
     'Content-Type': 'application/json'
   }
 })
-
-const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
 // Add request interceptor to include auth token and sessionToken in requests
 apiService.interceptors.request.use((config) => {
