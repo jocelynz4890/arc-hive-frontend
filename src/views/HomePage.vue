@@ -379,11 +379,13 @@ const loadFriendsOnly = async () => {
 }
 
 let unsubscribeEvents: (() => void) | null = null
+
 onMounted(() => {
   loadUserData()
   // Subscribe to backend SSE to refresh when daily refresh completes
   unsubscribeEvents = subscribeToEvents(async (e) => {
     if (e.type === 'daily-refresh-complete') {
+      console.log('[HomePage] Received daily-refresh-complete event')
       await loadUserData()
       if (selectedFriend.value) {
         const id = selectedFriend.value.username || (selectedFriend.value as any).id
@@ -401,6 +403,7 @@ onMounted(() => {
       }
     }
   })
+  
   // Listen for local avatar changes from Rewards page
   const onAvatarChanged = (e: Event) => {
     const detail = (e as CustomEvent).detail
@@ -425,7 +428,9 @@ onMounted(() => {
   })
 })
 
-onUnmounted(() => { if (unsubscribeEvents) unsubscribeEvents() })
+onUnmounted(() => { 
+  if (unsubscribeEvents) unsubscribeEvents()
+})
 
 // If auth store initializes later, reload data
 watch(user, (u) => { if (u) loadUserData() })

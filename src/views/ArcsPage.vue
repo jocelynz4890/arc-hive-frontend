@@ -846,6 +846,7 @@ const closeEditArcModal = () => {
   editingArcMembers.value = []
 }
 
+
 onMounted(() => {
   // Ensure auth is initialized before trying to load data
   authStore.initializeAuth()
@@ -855,6 +856,7 @@ onMounted(() => {
   // Subscribe to SSE to refresh when backend completes daily refresh
   unsubscribeEvents = subscribeToEvents(async (e) => {
     if (e.type === 'daily-refresh-complete') {
+      console.log('[ArcsPage] Received daily-refresh-complete event')
       await loadArcs()
       await loadFriends()
     }

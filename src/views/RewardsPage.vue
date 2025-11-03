@@ -650,14 +650,17 @@ const closeGachaModal = () => {
   gachaResult.value = null
 }
 
+
 onMounted(() => {
   loadRewards()
   // Subscribe to backend SSE to refresh when daily refresh completes
   unsubscribeEvents = subscribeToEvents(async (e) => {
     if (e.type === 'daily-refresh-complete') {
+      console.log('[RewardsPage] Received daily-refresh-complete event')
       await loadRewards()
     }
   })
+  
 })
 
 onBeforeUnmount(() => {
