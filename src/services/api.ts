@@ -9,11 +9,18 @@ export const apiService = axios.create({
   }
 })
 
-// Add request interceptor to include auth token if available
+// Add request interceptor to include auth token and sessionToken in requests
 apiService.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+    // Also add sessionToken to request body for authenticated requests
+    // Skip this for authentication and session routes to avoid circular dependency
+    const skipRoutes = ['/Authentication/authenticate', '/Authentication/createSession', '/Authentication/register']
+    const isAuthRoute = skipRoutes.some(route => config.url?.includes(route))
+    if (!isAuthRoute && config.data && typeof config.data === 'object') {
+      config.data.sessionToken = token
+    }
   }
   return config
 })

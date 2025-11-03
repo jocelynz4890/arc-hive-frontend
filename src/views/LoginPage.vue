@@ -43,6 +43,7 @@
             v-model="form.password"
             type="password"
             required
+            autocomplete="current-password"
             placeholder="Enter your password"
             class="form-input"
           />

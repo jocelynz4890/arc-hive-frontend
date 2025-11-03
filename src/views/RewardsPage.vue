@@ -184,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Avatar, StatData } from '../types'
@@ -193,7 +193,7 @@ import diceIcon from '../assets/dice.png'
 import importantIcon from '../assets/important.png'
 import lightbulbIcon from '../assets/lightbulb.png'
 import lockIcon from '../assets/lock.png'
-import { enhanceAvatarWithImage, getAvatarImage } from '../utils/avatarUtils'
+import { enhanceAvatarWithImage } from '../utils/avatarUtils'
 
 const authStore = useAuthStore()
 
@@ -290,21 +290,24 @@ const loadRewards = async () => {
         } catch (error: any) {
           console.warn('Could not get current avatar definition, using first owned avatar:', error.message)
           // Fallback to first owned avatar
-          if (ownedAvatars.value.length > 0) {
-            currentAvatar.value = ownedAvatars.value[0]
+          const firstOwned = ownedAvatars.value[0]
+          if (firstOwned) {
+            currentAvatar.value = firstOwned
           }
         }
       } else {
         // No current avatar set, use first owned avatar
-        if (ownedAvatars.value.length > 0) {
-          currentAvatar.value = ownedAvatars.value[0]
+        const firstOwned = ownedAvatars.value[0]
+        if (firstOwned) {
+          currentAvatar.value = firstOwned
         }
       }
     } catch (error: any) {
       console.warn('Could not load current avatar from backend, using first owned avatar:', error.message)
       // Fallback to first owned avatar
-      if (ownedAvatars.value.length > 0) {
-        currentAvatar.value = ownedAvatars.value[0]
+      const firstOwned = ownedAvatars.value[0]
+      if (firstOwned) {
+        currentAvatar.value = firstOwned
       }
     }
     
@@ -586,9 +589,6 @@ const selectAvatar = async (avatar: Avatar) => {
     : (user.value as any)?.username || (user.value as any)?.id || String(user.value)
   
   // Get the avatar ID - need to find the ID that corresponds to this avatar name
-  // First, try to find it in ownedAvatars to get the original ID
-  const ownedAvatar = ownedAvatars.value.find(a => a.name === avatar.name)
-  
   // We need to send the avatar ID (which might be ObjectId or name) to backend
   // Try to get it from the backend by looking up the avatar definition
   try {
@@ -662,110 +662,13 @@ const isAvatarUnlocked = (avatar: Avatar): boolean => {
   return true // All requirements met
 }
 
-const pickRandomAvatar = (avatars: Avatar[]): Avatar | null => {
-  if (avatars.length === 0) return null
-  
-  const randomIndex = Math.floor(Math.random() * avatars.length)
-  return avatars[randomIndex] || null
-}
-
-const generateSampleAvatars = (): Avatar[] => {
-  return [
-    {
-      name: 'Fire Warrior',
-      rarity: 'rare',
-      image: '/avatar-fire-warrior.png',
-      statAffinity: [
-        { stat: 'Strength', number: 5 },
-        { stat: 'HP', number: 3 }
-      ]
-    },
-    {
-      name: 'Wind Mage',
-      rarity: 'epic',
-      image: '/avatar-wind-mage.png',
-      statAffinity: [
-        { stat: 'Intelligence', number: 7 },
-        { stat: 'Agility', number: 4 }
-      ]
-    },
-    {
-      name: 'Earth Guardian',
-      rarity: 'legendary',
-      image: '/avatar-earth-guardian.png',
-      statAffinity: [
-        { stat: 'HP', number: 10 },
-        { stat: 'Stamina', number: 8 },
-        { stat: 'Strength', number: 6 }
-      ]
-    },
-    {
-      name: 'Water Healer',
-      rarity: 'common',
-      image: '/avatar-water-healer.png',
-      statAffinity: [
-        { stat: 'Stamina', number: 3 },
-        { stat: 'Intelligence', number: 2 }
-      ]
-    }
-  ]
-}
-
 const closeGachaModal = () => {
   showGachaModal.value = false
   gachaResult.value = null
 }
 
-const onDailyRefresh = async () => {
-  console.log('Daily refresh completed, reloading rewards...')
-  // Add a delay to ensure backend operations are fully committed
-  await new Promise(resolve => setTimeout(resolve, 500))
-  
-  // Force reload rewards to get updated points
-  const userId = typeof user.value === 'string' 
-    ? user.value 
-    : (user.value as any)?.username || (user.value as any)?.id || String(user.value)
-  
-  try {
-    // Wait a bit more to ensure backend has fully updated
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    // Reload points specifically first
-    const pointsResponse = await apiService.post('/Rewarding/getPoints', { user: userId })
-    const pointsValue = pointsResponse.data?.points ?? pointsResponse.data?.Points ?? pointsResponse.data ?? 0
-    const parsedPoints = typeof pointsValue === 'number' ? pointsValue : Number(pointsValue) || 0
-    
-    // Force reactivity by assigning to ensure Vue detects the change
-    userPoints.value = parsedPoints
-    console.log('Points reloaded after daily refresh:', userPoints.value, 'from response:', pointsResponse.data)
-    
-    // Also reload full rewards to ensure everything is synced
-    // Note: loadRewards will also update userPoints, but we just set it above so it should be the same
-    await loadRewards()
-    
-    // Ensure the points value is still correct after loadRewards (in case it didn't update)
-    if (userPoints.value !== parsedPoints) {
-      userPoints.value = parsedPoints
-      console.log('Points corrected after loadRewards:', userPoints.value)
-    }
-  } catch (error: any) {
-    console.error('Error reloading points after daily refresh:', error)
-    // Still try to reload rewards
-    await loadRewards()
-  }
-  
-  console.log('Rewards reloaded after daily refresh, final points:', userPoints.value)
-}
-
 onMounted(() => {
   loadRewards()
-  
-  // Listen for daily refresh to update points
-  window.addEventListener('daily-refresh-completed', onDailyRefresh)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('daily-refresh-completed', onDailyRefresh)
 })
 </script>
 

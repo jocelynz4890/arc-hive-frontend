@@ -149,69 +149,77 @@ const loadFriends = async () => {
       return true
     })
     
-    // Load each friend's current avatar and ensure username is set
-    const friendsWithAvatars = await Promise.all(
-      friendList.map(async (friend: any) => {
-        // Extract friend ID - backend returns user IDs (which are usernames in this system)
-        const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
-        
-        // Normalize friend object to ensure it has username
-        // Backend returns usernames as strings or objects with username/id
-        // For Friending, the user ID IS the username, so if only an id is present, use it as username
-        const normalizedFriend: Friend = typeof friend === 'string' 
-          ? { username: friend, id: friend }
-          : {
-              // Spread friend first to get all properties
-              ...friend,
-              // Then ensure username is set: prioritize explicit username, then use id/_id/friendId (which is the username in Friending)
-              username: friend.username || friendId || friend.id || friend._id || String(friend),
-              // Set id to the same value for consistency
-              id: friend.id || friend._id || friendId || friend.username || String(friend)
-            }
-        
-        try {
-          // Get friend's current avatar
-          const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
-            user: friendId
-          })
-          const avatarId = avatarResponse.data?.avatar || ''
-          
-          if (avatarId && avatarId !== '') {
-            // Get avatar definition to get the name
-            const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-              ids: [avatarId]
-            })
-            const avatarDefs = defResponse.data?.avatars || []
-            if (avatarDefs.length > 0 && avatarDefs[0].name) {
-              const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
-              return {
-                ...normalizedFriend,
-                avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
-              }
-            }
+    // First, normalize all friends and show them with default avatars immediately
+    const normalizedFriends = friendList.map((friend: any) => {
+      // Extract friend ID - backend returns user IDs (which are usernames in this system)
+      const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
+      
+      // Normalize friend object to ensure it has username
+      // Backend returns usernames as strings or objects with username/id
+      // For Friending, the user ID IS the username, so if only an id is present, use it as username
+      const normalizedFriend: Friend = typeof friend === 'string' 
+        ? { username: friend, id: friend }
+        : {
+            // Spread friend first to get all properties
+            ...friend,
+            // Then ensure username is set: prioritize explicit username, then use id/_id/friendId (which is the username in Friending)
+            username: friend.username || friendId || friend.id || friend._id || String(friend),
+            // Set id to the same value for consistency
+            id: friend.id || friend._id || friendId || friend.username || String(friend)
           }
-        } catch (error: any) {
-          console.warn(`Could not load avatar for friend ${friendId}:`, error.message || error)
-        }
-        
-        // Fallback: no avatar or error loading
-        return {
-          ...normalizedFriend,
-          avatar: defaultAvatar
-        }
-      })
-    )
+      
+      return {
+        ...normalizedFriend,
+        avatar: defaultAvatar
+      }
+    })
     
     // Create a new array reference to ensure Vue reactivity and deduplicate again (in case normalization created duplicates)
     const uniqueFriends = new Map<string, Friend>()
-    friendsWithAvatars.forEach((friend: Friend) => {
+    normalizedFriends.forEach((friend: Friend) => {
       const friendId = (friend as any).id || friend.username || (friend as any)._id || String(friend)
       if (!uniqueFriends.has(friendId)) {
         uniqueFriends.set(friendId, friend)
       }
     })
     
+    // Show friends immediately with default avatars
     friends.value = [...uniqueFriends.values()]
+    
+    // Then load avatars in the background without blocking the UI
+    friendList.forEach(async (friend: any) => {
+      const friendId = typeof friend === 'string' ? friend : (friend?.username || friend?.id || friend?._id || String(friend))
+      
+      try {
+        // Get friend's current avatar
+        const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+          user: friendId
+        })
+        const avatarId = avatarResponse.data?.avatar || ''
+        
+        if (avatarId && avatarId !== '') {
+          // Get avatar definition to get the name
+          const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+            ids: [avatarId]
+          })
+          const avatarDefs = defResponse.data?.avatars || []
+          if (avatarDefs.length > 0 && avatarDefs[0].name) {
+            const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+            const avatarUrl = getAvatarImage(avatar.name, 1)
+            
+            // Update the friend's avatar in the reactive array
+            const friendToUpdate = friends.value.find(f => 
+              (f as any).id === friendId || f.username === friendId || (f as any)._id === friendId
+            )
+            if (friendToUpdate) {
+              friendToUpdate.avatar = avatarUrl
+            }
+          }
+        }
+      } catch (error: any) {
+        console.warn(`Could not load avatar for friend ${friendId}:`, error.message || error)
+      }
+    })
     // Notify other parts of the app that the friend list changed (so previews can resync)
     try { window.dispatchEvent(new Event('friends-updated')) } catch (e) { /* ignore */ }
   } catch (error) {
@@ -235,23 +243,11 @@ const loadFriendCode = async () => {
   const raw = response.data?.friendcode ?? response.data?.friendCode ?? ''
   userFriendCode.value = formatFriendCode(raw)
   } catch (error) {
-    // Generate friend code if it doesn't exist on the backend
-    try {
-      // Extract username string for backend - Friending expects username string, not object
-      const username = typeof user.value === 'string' 
-        ? user.value
-        : ((user.value as any)?.username || (user.value as any)?.id || String(user.value))
-      const generateResponse = await apiService.post('/Friending/generateFriendCode', {
-        user: username
-      })
-  const raw2 = generateResponse.data?.friendCode ?? generateResponse.data?.friendcode ?? ''
-  userFriendCode.value = formatFriendCode(raw2)
-    } catch (generateError) {
-      console.error('Error generating friend code:', generateError)
-      // As a fallback, use any friendCode on the client-side user object
-      if ((user.value as any).friendCode) {
-        userFriendCode.value = formatFriendCode((user.value as any).friendCode)
-      }
+    console.error('Error loading friend code:', error)
+    // Friend code should be automatically generated by backend on registration
+    // Just use any client-side friendCode if available
+    if ((user.value as any).friendCode) {
+      userFriendCode.value = formatFriendCode((user.value as any).friendCode)
     }
   }
 }
@@ -411,16 +407,10 @@ const viewFriend = async (friend: any) => {
       sf.completedStats = c as any
     }
 
-    // If username is missing on the friend object, try to fetch friend details by id/username
+    // Username should already be available from listFriends
+    // If missing, it's already the userIdString, so use that
     if (selectedFriend.value && !selectedFriend.value.username) {
-      try {
-        const userResp = await apiService.post('/Friending/getUserById', { id: userIdString })
-        const u = userResp.data?.user ?? userResp.data
-        if (u && selectedFriend.value) selectedFriend.value.username = u.username || u.name || userIdString
-      } catch (ue) {
-        // ignore: optional enrichment
-        console.debug('Could not fetch friend details:', ue)
-      }
+      selectedFriend.value.username = userIdString
     }
   } catch (error) {
     console.error('Error loading friend stats:', error)

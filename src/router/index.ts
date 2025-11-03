@@ -50,9 +50,6 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
   
-  // Ensure auth is initialized before checking
-  authStore.initializeAuth()
-  
   console.log('Router guard:', {
     path: to.path,
     requiresAuth: to.meta.requiresAuth,

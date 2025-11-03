@@ -11,31 +11,20 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from './stores/auth'
 import NavBar from './components/NavBar.vue'
 import DebugPanel from './components/DebugPanel.vue'
-import { dailyRefreshService } from './services/dailyRefresh'
 
 const authStore = useAuthStore()
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 
 // Listen for authentication changes
-const unsubscribe = authStore.$subscribe((mutation, state) => {
-  if (state.isAuthenticated) {
-    dailyRefreshService.start()
-  } else {
-    dailyRefreshService.stop()
-  }
+const unsubscribe = authStore.$subscribe((_mutation) => {
+  // Backend handles daily refresh at midnight, no frontend action needed
 })
 
 onMounted(() => {
   authStore.initializeAuth()
-  
-  // Start daily refresh service if authenticated
-  if (authStore.isAuthenticated) {
-    dailyRefreshService.start()
-  }
 })
 
 onUnmounted(() => {
-  dailyRefreshService.stop()
   unsubscribe()
 })
 </script>

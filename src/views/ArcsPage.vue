@@ -31,61 +31,63 @@
               </div>
             </div>
             
-            <div class="arc-members">
-              <h4>Members ({{ arc.members.length }})</h4>
-              <div class="members-list">
-                <div 
-                  v-for="(member, idx) in arc.members" 
-                  :key="typeof member === 'string' ? member : (member.username || member.id || idx)"
-                  class="member-item"
-                >
-                  <img 
-                    :src="(member as Friend).avatar || defaultAvatar" 
-                    :alt="typeof member === 'string' ? member : (member.username || member.id || String(member))"
-                    class="member-avatar"
-                  />
-                  <span class="member-name">{{ typeof member === 'string' ? member : (member.username || member.id || String(member)) }}</span>
+            <div class="arc-scrollable-content">
+              <div class="arc-members">
+                <h4>Members ({{ arc.members.length }})</h4>
+                <div class="members-list">
+                  <div 
+                    v-for="(member, idx) in arc.members" 
+                    :key="typeof member === 'string' ? member : (member.username || member.id || idx)"
+                    class="member-item"
+                  >
+                    <img 
+                      :src="(member as Friend).avatar || defaultAvatar" 
+                      :alt="typeof member === 'string' ? member : (member.username || member.id || String(member))"
+                      class="member-avatar"
+                    />
+                    <span class="member-name">{{ typeof member === 'string' ? member : (member.username || member.id || String(member)) }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div class="progress-section">
-              <h4>Today's Progress</h4>
-              <div class="progress-lists">
-                <div class="completed-list">
-                  <h5>
-                    <img :src="completedIcon" alt="Completed" class="status-icon" />
-                    Completed
-                  </h5>
-                  <div v-if="getCompletedMembers(arc).length === 0" class="no-members">
-                    No one yet
-                  </div>
-                  <div v-else>
-                    <div 
-                      v-for="member in getCompletedMembers(arc)" 
-                      :key="member.user.username"
-                      class="member-progress completed"
-                    >
-                      {{ member.user.username }}
+              
+              <div class="progress-section">
+                <h4>Today's Progress</h4>
+                <div class="progress-lists">
+                  <div class="completed-list">
+                    <h5>
+                      <img :src="completedIcon" alt="Completed" class="status-icon" />
+                      Completed
+                    </h5>
+                    <div v-if="getCompletedMembers(arc).length === 0" class="no-members">
+                      No one yet
+                    </div>
+                    <div v-else>
+                      <div 
+                        v-for="member in getCompletedMembers(arc)" 
+                        :key="member.user.username"
+                        class="member-progress completed"
+                      >
+                        {{ member.user.username }}
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div class="incomplete-list">
-                  <h5>
-                    <img :src="incompletedIcon" alt="Incomplete" class="status-icon" />
-                    Incomplete
-                  </h5>
-                  <div v-if="getIncompleteMembers(arc).length === 0" class="no-members">
-                    Everyone done!
-                  </div>
-                  <div v-else>
-                    <div 
-                      v-for="(member, idx) in getIncompleteMembers(arc)" 
-                      :key="typeof member === 'string' ? member : (member.username || member.id || idx)"
-                      class="member-progress incomplete"
-                    >
-                      {{ typeof member === 'string' ? member : (member.username || member.id || String(member)) }}
+                  
+                  <div class="incomplete-list">
+                    <h5>
+                      <img :src="incompletedIcon" alt="Incomplete" class="status-icon" />
+                      Incomplete
+                    </h5>
+                    <div v-if="getIncompleteMembers(arc).length === 0" class="no-members">
+                      Everyone done!
+                    </div>
+                    <div v-else>
+                      <div 
+                        v-for="(member, idx) in getIncompleteMembers(arc)" 
+                        :key="typeof member === 'string' ? member : (member.username || member.id || idx)"
+                        class="member-progress incomplete"
+                      >
+                        {{ typeof member === 'string' ? member : (member.username || member.id || String(member)) }}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -247,7 +249,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
 import type { Arc, Friend, User } from '../types'
@@ -322,53 +324,57 @@ const loadArcs = async () => {
           return normalizeArc(arcDetails.data?.arc || arcDetails.data || arc)
         })
       )
-      // Load avatars for all members in all arcs
-      const arcsWithAvatars = await Promise.all(
-        fullArcs.map(async (arc: any) => {
-          const membersWithAvatars = await Promise.all(
-            arc.members.map(async (member: any) => {
-              if (!member.username) return member
-              
-              try {
-                // Get member's current avatar
-                const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
-                  user: member.username
-                })
-                const avatarId = avatarResponse.data?.avatar || ''
+      // Set default avatars for all members immediately
+      const arcsWithDefaultAvatars = fullArcs.map((arc: any) => ({
+        ...arc,
+        members: arc.members.map((member: any) => ({
+          ...member,
+          avatar: member.avatar || defaultAvatar
+        }))
+      }))
+      
+      // Show arcs immediately with default avatars
+      userArcs.value = [...arcsWithDefaultAvatars]
+      
+      // Load real avatars in the background without blocking
+      fullArcs.forEach(async (arc: any) => {
+        arc.members.forEach(async (member: any) => {
+          if (!member.username) return
+          
+          try {
+            // Get member's current avatar
+            const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+              user: member.username
+            })
+            const avatarId = avatarResponse.data?.avatar || ''
+            
+            if (avatarId && avatarId !== '') {
+              // Get avatar definition to get the name
+              const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+                ids: [avatarId]
+              })
+              const avatarDefs = defResponse.data?.avatars || []
+              if (avatarDefs.length > 0 && avatarDefs[0].name) {
+                const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+                const avatarUrl = getAvatarImage(avatar.name, 1)
                 
-                if (avatarId && avatarId !== '') {
-                  // Get avatar definition to get the name
-                  const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-                    ids: [avatarId]
-                  })
-                  const avatarDefs = defResponse.data?.avatars || []
-                  if (avatarDefs.length > 0 && avatarDefs[0].name) {
-                    const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
-                    return {
-                      ...member,
-                      avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
-                    }
+                // Update the member's avatar in the reactive array
+                const arcToUpdate = userArcs.value.find(a => a.id === arc.id)
+                if (arcToUpdate) {
+                  const memberToUpdate = arcToUpdate.members.find(m => 
+                    (m as any).username === member.username || m.username === member.username
+                  )
+                  if (memberToUpdate) {
+                    (memberToUpdate as any).avatar = avatarUrl
                   }
                 }
-              } catch (error: any) {
-                console.warn(`Could not load avatar for member ${member.username}:`, error.message || error)
               }
-              
-              // Fallback: no avatar or error loading
-              return {
-                ...member,
-                avatar: defaultAvatar
-              }
-            })
-          )
-          return {
-            ...arc,
-            members: membersWithAvatars
+            }
+          } catch (error: any) {
+            console.warn(`Could not load avatar for member ${member.username}:`, error.message || error)
           }
         })
-      )
-      // Force reactivity by creating a new array reference
-      userArcs.value = [...arcsWithAvatars]
+      })
     } else if (arcsData && Array.isArray(arcsData.arcs)) {
       console.log('Arcs data has arcs property, fetching full details...', arcsData.arcs)
       // Backend returns { arcs: [id1, id2, ...] }, fetch full details for each arc ID
@@ -393,54 +399,57 @@ const loadArcs = async () => {
       // Filter out any null results from failed fetches
       const validArcs = fullArcs.filter((arc: any) => arc !== null)
       
-      // Load avatars for all members in all arcs
-      const arcsWithAvatars = await Promise.all(
-        validArcs.map(async (arc: any) => {
-          const membersWithAvatars = await Promise.all(
-            arc.members.map(async (member: any) => {
-              if (!member.username) return member
-              
-              try {
-                // Get member's current avatar
-                const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
-                  user: member.username
-                })
-                const avatarId = avatarResponse.data?.avatar || ''
+      // Set default avatars for all members immediately
+      const arcsWithDefaultAvatars = validArcs.map((arc: any) => ({
+        ...arc,
+        members: arc.members.map((member: any) => ({
+          ...member,
+          avatar: member.avatar || defaultAvatar
+        }))
+      }))
+      
+      // Show arcs immediately with default avatars
+      userArcs.value = [...arcsWithDefaultAvatars]
+      
+      // Load real avatars in the background without blocking
+      validArcs.forEach(async (arc: any) => {
+        arc.members.forEach(async (member: any) => {
+          if (!member.username) return
+          
+          try {
+            // Get member's current avatar
+            const avatarResponse = await apiService.post('/Rewarding/getCurrentAvatar', {
+              user: member.username
+            })
+            const avatarId = avatarResponse.data?.avatar || ''
+            
+            if (avatarId && avatarId !== '') {
+              // Get avatar definition to get the name
+              const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
+                ids: [avatarId]
+              })
+              const avatarDefs = defResponse.data?.avatars || []
+              if (avatarDefs.length > 0 && avatarDefs[0].name) {
+                const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
+                const avatarUrl = getAvatarImage(avatar.name, 1)
                 
-                if (avatarId && avatarId !== '') {
-                  // Get avatar definition to get the name
-                  const defResponse = await apiService.post('/Rewarding/getAvatarsByIds', {
-                    ids: [avatarId]
-                  })
-                  const avatarDefs = defResponse.data?.avatars || []
-                  if (avatarDefs.length > 0 && avatarDefs[0].name) {
-                    const avatar = enhanceAvatarWithImage(avatarDefs[0].name)
-                    return {
-                      ...member,
-                      avatar: getAvatarImage(avatar.name, 1) // Use frame 1 for profile picture
-                    }
+                // Update the member's avatar in the reactive array
+                const arcToUpdate = userArcs.value.find(a => a.id === arc.id)
+                if (arcToUpdate) {
+                  const memberToUpdate = arcToUpdate.members.find(m => 
+                    (m as any).username === member.username || m.username === member.username
+                  )
+                  if (memberToUpdate) {
+                    (memberToUpdate as any).avatar = avatarUrl
                   }
                 }
-              } catch (error: any) {
-                console.warn(`Could not load avatar for member ${member.username}:`, error.message || error)
               }
-              
-              // Fallback: no avatar or error loading
-              return {
-                ...member,
-                avatar: defaultAvatar
-              }
-            })
-          )
-          return {
-            ...arc,
-            members: membersWithAvatars
+            }
+          } catch (error: any) {
+            console.warn(`Could not load avatar for member ${member.username}:`, error.message || error)
           }
         })
-      )
-      
-      // Force reactivity by creating a new array reference
-      userArcs.value = [...arcsWithAvatars]
+      })
       console.log('Final arcs array:', userArcs.value)
       console.log('Arc progress details:', userArcs.value.map(a => ({
         name: a.name,
@@ -708,16 +717,58 @@ const updateArcMembers = async () => {
 const toggleProgress = async (arc: Arc) => {
   if (!user.value) return
   
+  // Get the current user's username for comparison
+  const userId = typeof user.value === 'string' 
+    ? user.value 
+    : (user.value as any).username || (user.value as any).id || String(user.value)
+  
+  // Optimistically update the local state immediately
+  const wasCompleted = isCompletedToday(arc)
+  const arcIndex = userArcs.value.findIndex(a => a.id === arc.id)
+  
+  if (arcIndex !== -1) {
+    const updatedArc = { ...userArcs.value[arcIndex] } as Arc
+    if (!updatedArc.progress) {
+      updatedArc.progress = []
+    }
+    
+    if (wasCompleted) {
+      // Remove progress
+      updatedArc.progress = updatedArc.progress.filter((p: any) => {
+        const progressUser = typeof p.user === 'string' 
+          ? p.user 
+          : (p.user?.username || p.user?.id || String(p.user))
+        return progressUser !== userId
+      })
+    } else {
+      // Add progress
+      const existingProgress = updatedArc.progress.findIndex((p: any) => {
+        const progressUser = typeof p.user === 'string' 
+          ? p.user 
+          : (p.user?.username || p.user?.id || String(p.user))
+        return progressUser === userId
+      })
+      
+      if (existingProgress === -1) {
+        updatedArc.progress.push({ user: { username: userId }, dailyProgress: true })
+      } else {
+        const existing = updatedArc.progress[existingProgress]
+        if (existing) {
+          existing.dailyProgress = true
+        }
+      }
+    }
+    
+    // Update the array immediately
+    userArcs.value[arcIndex] = updatedArc
+  }
+  
+  // Now make the API call in the background
   try {
-    // Backend expects user as a string identifier, not an object
-    const userId = typeof user.value === 'string' 
-      ? user.value 
-      : (user.value as any).username || (user.value as any).id || String(user.value)
-    
     console.log('Toggle progress - userId:', userId, 'arc.id:', arc.id)
-    console.log('Current completion status:', isCompletedToday(arc))
+    console.log('Was completed:', wasCompleted)
     
-    if (isCompletedToday(arc)) {
+    if (wasCompleted) {
       console.log('Marking as NOT completed')
       await apiService.post('/ArcTracking/markNoProgress', {
         user: userId,
@@ -731,9 +782,12 @@ const toggleProgress = async (arc: Arc) => {
       })
     }
     
+    // Reload to ensure server state is synced
     await loadArcs()
   } catch (error) {
     console.error('Error toggling progress:', error)
+    // On error, reload to get correct state
+    await loadArcs()
   }
 }
 
@@ -819,21 +873,6 @@ onMounted(() => {
       loadFriends()
     }
   }, 100)
-  
-  // Listen for daily refresh to reload arcs
-  const onDailyRefresh = async () => {
-    console.log('Daily refresh completed, reloading arcs...')
-    // Add a small delay to ensure backend operations are fully committed
-    await new Promise(resolve => setTimeout(resolve, 100))
-    await loadArcs()
-    console.log('Arcs reloaded after daily refresh')
-  }
-  window.addEventListener('daily-refresh-completed', onDailyRefresh)
-  
-  // Clean up listener when component unmounts
-  onUnmounted(() => {
-    window.removeEventListener('daily-refresh-completed', onDailyRefresh)
-  })
 })
 
 // If the auth store initializes after mount, reload data when user becomes available
@@ -932,6 +971,12 @@ watch(user, (u) => {
   cursor: pointer;
   transition: all 0.1s ease;
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 500px;
+  max-height: 600px;
+  overflow: hidden;
 }
 
 .arc-card:hover {
@@ -952,6 +997,10 @@ watch(user, (u) => {
   align-items: center;
   margin-bottom: 1.5rem;
   gap: 1rem;
+  flex-shrink: 0;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .arc-header h3 {
@@ -959,6 +1008,12 @@ watch(user, (u) => {
   color: #333;
   font-size: 1.5rem;
   font-family: 'Silkscreen', monospace !important;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .arc-streak {
@@ -975,6 +1030,7 @@ watch(user, (u) => {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .fire-icon {
@@ -994,6 +1050,7 @@ watch(user, (u) => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-shrink: 0;
 }
 
 .stat-label {
@@ -1010,8 +1067,18 @@ watch(user, (u) => {
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
+.arc-scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .arc-members {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
   padding-bottom: 1rem;
   border-bottom: 3px solid #cdb4db;
 }
@@ -1055,7 +1122,7 @@ watch(user, (u) => {
 }
 
 .progress-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
   padding-bottom: 1rem;
   border-bottom: 3px solid #cdb4db;
 }

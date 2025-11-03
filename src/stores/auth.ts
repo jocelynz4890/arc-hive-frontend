@@ -8,50 +8,69 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!user.value && !!token.value)
 
-  // Ensure a friend code exists server-side and return it. This calls the backend to create/persist the code.
-  const ensureFriendCodeOnServer = async (u: any) => {
+  // Get the friend code for a user from the backend
+  const getFriendCodeFromServer = async (u: any) => {
     try {
       // Extract username string for backend - Friending expects username string, not object
       const username = typeof u === 'string' 
         ? u
         : (u?.username || u?.id || String(u))
-      const resp = await apiService.post('/Friending/generateFriendCode', { user: username })
+      const resp = await apiService.post('/Friending/getFriendCodeByUsername', { username })
       return resp.data?.friendCode ?? resp.data?.friendcode ?? null
     } catch (e) {
-      console.debug('Could not generate friend code on server:', e)
+      console.debug('Could not get friend code from server:', e)
       return null
     }
   }
 
   const login = async (username: string, password: string) => {
     try {
+      // 1. Authenticate user
       const response = await apiService.post('/Authentication/authenticate', {
         username,
         password
       })
-      // Accept either { user: {...} } or the whole response body as the user
       console.debug('Login response data:', response.data)
       if (response.data && (response.data as any).error) {
-        // Backend returned an error payload with a 200 status — treat as failure
         return { success: false, error: String((response.data as any).error) }
       }
-      // Normalize user value: backend sometimes returns just an id string
+      
+      // 2. Normalize user value
       const respData = response.data
+      let userId: string
       if (respData && typeof (respData as any).user === 'string') {
-        user.value = { id: (respData as any).user, username }
+        userId = (respData as any).user
+        user.value = { id: userId, username }
       } else {
+        userId = respData.user
         user.value = respData.user ?? respData
       }
-      // Ensure friendCode exists on the server; prefer backend-generated code
+      
+      // 3. Create session for authenticated user
+      const sessionResponse = await apiService.post('/Authentication/createSession', {
+        user: userId
+      })
+      if (sessionResponse.data && (sessionResponse.data as any).error) {
+        return { success: false, error: String((sessionResponse.data as any).error) }
+      }
+      const sessionToken = sessionResponse.data?.token
+      if (!sessionToken) {
+        return { success: false, error: 'Failed to create session' }
+      }
+      
+      // 4. Store session token and user FIRST so subsequent API calls can use it
+      token.value = sessionToken
+      localStorage.setItem('token', sessionToken)
+      localStorage.setItem('user', JSON.stringify(user.value))
+      
+      // 5. Get friend code from the server if not already present
       if (user.value && !(user.value as any).friendCode) {
-        const fc = await ensureFriendCodeOnServer(user.value)
+        const fc = await getFriendCodeFromServer(user.value)
         if (fc) {
           ;(user.value as any).friendCode = fc
+          localStorage.setItem('user', JSON.stringify(user.value))
         }
       }
-      token.value = 'authenticated' // Simple token for demo
-      localStorage.setItem('token', token.value)
-      localStorage.setItem('user', JSON.stringify(user.value))
       
       return { success: true }
     } catch (error: any) {
@@ -63,57 +82,59 @@ export const useAuthStore = defineStore('auth', () => {
 
   const register = async (username: string, password: string) => {
     try {
+      // 1. Register user
       const response = await apiService.post('/Authentication/register', {
         username,
         password
       })
-      // Backend might return different shapes (user object, or success payload).
       console.debug('Register response data:', response.data)
       if (response.data && (response.data as any).error) {
-        // Backend returned an error payload (for example: username exists)
         return { success: false, error: String((response.data as any).error) }
       }
-      // Normalize user value: backend sometimes returns just an id string
+      
+      // 2. Normalize user value
       const regData = response.data
+      let userId: string
       if (regData && typeof (regData as any).user === 'string') {
-        user.value = { id: (regData as any).user, username }
+        userId = (regData as any).user
+        user.value = { id: userId, username }
       } else {
+        userId = regData.user
         user.value = regData.user ?? regData
       }
       
-      // Automatically initialize friend code, stats, and rewards for new user
-      const userId = user.value?.id || user.value?.username || String(user.value)
-      // For Friending and Rewarding, _id must be the username
-      const friendingUserId = user.value?.username || user.value?.id || username || String(user.value)
-      const rewardUserId = user.value?.username || user.value?.id || username || String(user.value)
-      
-      // Generate friend code (using username for Friending)
-      try {
-        const fc = await ensureFriendCodeOnServer(friendingUserId)
-        if (fc) {
-          ;(user.value as any).friendCode = fc
-        }
-      } catch (e) {
-        console.error('Could not generate friend code:', e)
+      // 3. Create session for registered user
+      const sessionResponse = await apiService.post('/Authentication/createSession', {
+        user: userId
+      })
+      if (sessionResponse.data && (sessionResponse.data as any).error) {
+        return { success: false, error: String((sessionResponse.data as any).error) }
+      }
+      const sessionToken = sessionResponse.data?.token
+      if (!sessionToken) {
+        return { success: false, error: 'Failed to create session' }
       }
       
-      // Initialize stats
-      try {
-        await apiService.post('/StatTracking/initializeStats', { user: userId })
-      } catch (e) {
-        console.error('Could not initialize stats:', e)
-      }
-      
-      // Initialize rewards (using username as _id for Rewarding)
-      try {
-        await apiService.post('/Rewarding/initializeRewards', { user: rewardUserId })
-      } catch (e) {
-        console.error('Could not initialize rewards:', e)
-      }
-      
-      token.value = 'authenticated'
-      localStorage.setItem('token', token.value)
+      // 4. Store session token and user FIRST so subsequent API calls can use it
+      token.value = sessionToken
+      localStorage.setItem('token', sessionToken)
       localStorage.setItem('user', JSON.stringify(user.value))
+      
+      // 5. Backend sync automatically initializes friend code, stats, and rewards
+      // Wait a bit for sync to complete, then fetch friend code if needed
+      setTimeout(async () => {
+        if (user.value && !(user.value as any).friendCode) {
+          try {
+            const fc = await getFriendCodeFromServer(username)
+            if (fc) {
+              ;(user.value as any).friendCode = fc
+              localStorage.setItem('user', JSON.stringify(user.value))
+            }
+          } catch (e) {
+            console.debug('Could not get friend code:', e)
+          }
+        }
+      }, 500)
       
       return { success: true }
     } catch (error: any) {
@@ -123,7 +144,20 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const logout = () => {
+  const logout = async () => {
+    // Invalidate session on backend if we have a token
+    if (token.value) {
+      try {
+        await apiService.post('/Authentication/invalidateSession', {
+          token: token.value
+        })
+      } catch (error) {
+        console.error('Error invalidating session:', error)
+        // Continue with logout even if invalidation fails
+      }
+    }
+    
+    // Clear local state
     user.value = null
     token.value = null
     localStorage.removeItem('token')
