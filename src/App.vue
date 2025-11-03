@@ -2,7 +2,7 @@
   <div id="app">
     <NavBar v-if="isAuthenticated" />
     <router-view />
-    <DebugPanel />
+    <!-- <DebugPanel /> -->
   </div>
 </template>
 
@@ -10,7 +10,7 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from './stores/auth'
 import NavBar from './components/NavBar.vue'
-import DebugPanel from './components/DebugPanel.vue'
+// import DebugPanel from './components/DebugPanel.vue'
 
 const authStore = useAuthStore()
 const isAuthenticated = computed(() => authStore.isAuthenticated)
