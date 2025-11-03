@@ -9,6 +9,8 @@ export const apiService = axios.create({
   }
 })
 
+const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+
 // Add request interceptor to include auth token and sessionToken in requests
 apiService.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
