@@ -1448,12 +1448,71 @@ watch(user, (u) => {
 }
 
 @media (max-width: 768px) {
+  .arcs-page {
+    padding: 1rem;
+  }
+  
+  .page-container {
+    gap: 1rem;
+  }
+  
+  .page-header h1 {
+    font-size: 2em;
+  }
+  
+  .page-header p {
+    font-size: 1rem;
+  }
+  
+  .create-arc-button {
+    font-size: 0.9rem;
+    padding: 0.6rem 1.2rem;
+  }
+  
+  .arcs-section {
+    padding: 1rem;
+  }
+  
   .arcs-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .arc-card {
+    min-height: 400px;
+    max-height: 500px;
+    padding: 1rem;
+  }
+  
+  .arc-header h3 {
+    font-size: 1.2rem;
+  }
+  
+  .arc-streak {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .fire-icon {
+    height: 16px;
+  }
+  
+  .stat-label {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.8rem;
   }
   
   .progress-lists {
     grid-template-columns: 1fr;
+  }
+  
+  .member-item {
+    font-size: 0.75rem;
+  }
+  
+  .member-avatar {
+    width: 16px;
+    height: 16px;
   }
 }
 </style>

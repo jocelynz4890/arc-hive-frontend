@@ -666,12 +666,53 @@ watch(user, (u) => { if (u) loadUserData() })
 }
 
 @media (max-width: 768px) {
+  .home-page {
+    padding: 1rem;
+  }
+  
+  .page-container {
+    gap: 1rem;
+  }
+  
   .stats-section {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
   .content-section {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .avatar-section, .stats-container, .arcs-preview, .friends-preview {
+    padding: 1rem;
+  }
+  
+  .animated-avatar {
+    width: 200px;
+    height: 200px;
+  }
+  
+  .avatar-frame {
+    width: 200px;
+    height: 200px;
+  }
+  
+  .stats-container {
+    min-height: 600px;
+  }
+  
+  .section-header h2 {
+    font-size: 1.4em;
+  }
+  
+  .add-button {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .arc-preview-card h4, .friend-preview-card h4 {
+    font-size: 1.1em;
   }
 }
 </style>

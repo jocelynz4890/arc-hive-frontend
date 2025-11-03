@@ -162,6 +162,57 @@ const logout = async () => {
   font-weight: 600;
 }
 
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0.25rem 0;
+  }
+  
+  .navbar-content {
+    padding: 0 0.5rem;
+    gap: 0.5rem;
+  }
+  
+  .app-title {
+    font-size: 1.2rem;
+    padding: 0.15rem 0.35rem;
+  }
+  
+  .user-info {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+  
+  .username {
+    font-size: 0.9rem;
+    margin-right: 0;
+  }
+  
+  .nav-icons {
+    gap: 0.25rem;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .nav-button {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+    gap: 0.4rem;
+  }
+  
+  .nav-icon-img {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .navbar-right {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
 .nav-icon-img {
   width: 20px;
   height: 20px;

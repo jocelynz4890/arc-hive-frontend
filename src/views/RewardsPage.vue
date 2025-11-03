@@ -406,50 +406,32 @@ const spendPoints = async () => {
       return
     }
     
-    // Get avatar IDs from backend
+    // Get avatar IDs from backend - only for UNLOCKED avatars
     // Since the database might have ObjectId-based IDs or name-based IDs, we need to be flexible
     let avatarIdsToUse: string[] = []
+    const unlockedAvatarNames = unlockedAvatars.map(a => a.name)
     
-    // Strategy 1: Try to get all avatar IDs from backend (works with any ID format)
+    // Strategy 1: Try to map unlocked avatar names to their IDs
     try {
-      const availableResponse = await apiService.post('/Rewarding/getAvailableAvatarIds', {
-        user: userId
+      const avatarDefResponse = await apiService.post('/Rewarding/getAvatarsByName', {
+        names: unlockedAvatarNames
       })
-      const allAvatarIds = availableResponse.data?.avatarIds || []
+      const avatarDefs = avatarDefResponse.data?.avatars || []
       
-      if (allAvatarIds.length > 0) {
-        avatarIdsToUse = allAvatarIds
-        console.log('✅ Got all avatar IDs from backend:', avatarIdsToUse.length, 'avatars')
+      if (avatarDefs.length > 0) {
+        avatarIdsToUse = avatarDefs.map((a: any) => a._id)
+        console.log('✅ Mapped unlocked avatar names to IDs:', avatarIdsToUse.length, 'avatars')
       } else {
-        throw new Error('No avatar IDs returned from getAvailableAvatarIds')
+        throw new Error('No avatars found by name')
       }
     } catch (error: any) {
-      // Backend endpoint doesn't exist yet or returned error
-      console.warn('Could not get available avatars from backend:', error.message || error)
+      console.warn('Could not get avatar definitions by name:', error.message || error)
       
-      // Strategy 2: Try to map unlocked avatar names to their IDs
-      const unlockedAvatarNames = unlockedAvatars.map(a => a.name)
-      try {
-        const avatarDefResponse = await apiService.post('/Rewarding/getAvatarsByName', {
-          names: unlockedAvatarNames
-        })
-        const avatarDefs = avatarDefResponse.data?.avatars || []
-        
-        if (avatarDefs.length > 0) {
-          avatarIdsToUse = avatarDefs.map((a: any) => a._id)
-          console.log('✅ Mapped avatar names to IDs:', avatarIdsToUse.length, 'avatars')
-        } else {
-          throw new Error('No avatars found by name')
-        }
-      } catch (error2: any) {
-        console.warn('Could not get avatar definitions by name:', error2.message || error2)
-        
-        // Strategy 3: Last resort - use names as IDs (only works if database uses names as IDs)
-        // This will fail if database has ObjectIds, but it's the best we can do without backend support
-        avatarIdsToUse = unlockedAvatarNames
-        console.warn('⚠️ Using avatar names as IDs (last resort). This will only work if database uses names as IDs.')
-        console.warn('   Please restart your backend server and re-seed the database for proper support.')
-      }
+      // Strategy 2: Last resort - use names as IDs (only works if database uses names as IDs)
+      // This will fail if database has ObjectIds, but it's the best we can do without backend support
+      avatarIdsToUse = unlockedAvatarNames
+      console.warn('⚠️ Using avatar names as IDs (last resort). This will only work if database uses names as IDs.')
+      console.warn('   Please restart your backend server and re-seed the database for proper support.')
     }
     
     if (avatarIdsToUse.length === 0) {
@@ -1162,9 +1144,48 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
+  .rewards-page {
+    padding: 1rem;
+  }
+  
+  .page-container {
+    gap: 1rem;
+  }
+  
+  .page-header h1 {
+    font-size: 2em;
+  }
+  
+  .page-header p {
+    font-size: 1rem;
+  }
+  
+  .points-section {
+    padding: 1rem;
+  }
+  
   .points-display {
     flex-direction: column;
     text-align: center;
+    gap: 1rem;
+  }
+  
+  .points-value {
+    font-size: 1.5rem;
+  }
+  
+  .spend-button {
+    font-size: 0.9rem;
+    padding: 0.6rem 1.2rem;
+  }
+  
+  .dice-icon {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .current-avatar-section {
+    padding: 1rem;
   }
   
   .avatar-display {
@@ -1172,8 +1193,27 @@ onBeforeUnmount(() => {
     text-align: center;
   }
   
+  .current-avatar-img {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .available-section {
+    padding: 1rem;
+  }
+  
   .avatars-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .avatar-card {
+    padding: 0.75rem;
+  }
+  
+  .avatar-img {
+    width: 80px;
+    height: 80px;
   }
   
   .rarity-info {

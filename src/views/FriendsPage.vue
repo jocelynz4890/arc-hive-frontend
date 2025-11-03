@@ -835,12 +835,65 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .friends-page {
+    padding: 1rem;
+  }
+  
+  .page-container {
+    gap: 1rem;
+  }
+  
+  .page-header h1 {
+    font-size: 2em;
+  }
+  
+  .page-header p {
+    font-size: 1rem;
+  }
+  
   .friend-code-section {
     grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .code-input-section h3, .your-code-section h3 {
+    font-size: 1.2em;
+  }
+  
+  .input-group {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .code-input {
+    font-size: 0.9rem;
+  }
+  
+  .add-friend-button {
+    font-size: 0.9rem;
+    padding: 0.6rem 1.2rem;
+  }
+  
+  .friends-section {
+    padding: 1rem;
+  }
+  
+  .friends-section h3 {
+    font-size: 1.4em;
   }
   
   .friends-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .friend-card {
+    padding: 1rem;
+  }
+  
+  .friend-name {
+    font-size: 1.1em;
   }
 }
 </style>
