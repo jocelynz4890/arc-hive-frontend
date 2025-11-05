@@ -15,7 +15,7 @@ All located at the top level of this repository.
 
 1. Check-In_Recording.mov
 2. FinalRecording1.mov and FinalRecording2.mov
-3. A4C_Final_Recording.mov
+3. A4C_Final_Recording.mov (the trace is in Trace.md)
 
 ## Testing
 
